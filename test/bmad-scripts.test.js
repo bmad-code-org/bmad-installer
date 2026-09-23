@@ -14,7 +14,7 @@ import {
 /** @typedef {import('../src/run.js').RunRequest} RunRequest */
 /** @typedef {import('../src/run.js').RunResult} RunResult */
 
-const SKILLS_DIR = '/project/.agents/skills'
+const SKILLS_DIR = join('/project', '.agents', 'skills')
 const BMAD_DIR = join(SKILLS_DIR, 'bmad')
 const PROJECT = '/project'
 

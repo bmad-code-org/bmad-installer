@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { join } from 'node:path'
 import {
   SkillsCliError,
   addArgv,
@@ -50,7 +51,7 @@ function fakeCli(canned, options = {}) {
 }
 
 test('skillsCliBin resolves the shipped skills CLI entry point', () => {
-  assert.ok(bin.endsWith('skills/bin/cli.mjs'))
+  assert.ok(bin.endsWith(join('skills', 'bin', 'cli.mjs')))
 })
 
 test('addArgv builds a headless call with metadata after the swallowing flags', () => {

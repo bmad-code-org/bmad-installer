@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { resolve } from 'node:path'
 import { update } from '../../src/commands/update.js'
 import {
   fakeBmadScripts,
@@ -41,7 +42,7 @@ test('the update runs the CLI, then reports and closes', async () => {
   )
 
   assert.equal(code, 0)
-  assert.deepEqual(only(requests, 'update'), [{ kind: 'update', cwd: '/project' }])
+  assert.deepEqual(only(requests, 'update'), [{ kind: 'update', cwd: resolve('/project') }])
   assert.deepEqual(seen, ['/project/.agents/skills/bmad', '/project/.agents/skills/bmad'])
   assert.deepEqual(said.says, [messages.updateSpinnerDone])
   assert.ok(said.notes.some((note) => note.startsWith(messages.reportTitle)))
