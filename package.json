@@ -1,0 +1,43 @@
+{
+  "name": "bmad-method",
+  "version": "6.13.0-next.0",
+  "description": "Installs and updates BMad Method modules. A thin wrapper around the skills CLI.",
+  "license": "MIT",
+  "author": "Brian (BMad) Madison",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bmad-code-org/bmad-installer.git"
+  },
+  "type": "module",
+  "bin": {
+    "bmad-method": "bin/bmad-method.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "modules.yaml",
+    "messages.yaml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "check": "tsc",
+    "e2e": "node --test \"test/e2e/*.test.js\""
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.8.1",
+    "cross-spawn": "^7.0.6",
+    "yaml": "^2.9.1",
+    "@vercel/detect-agent": "^1.2.5",
+    "skills": "^1.7.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "@types/node": "^22.20.0",
+    "@types/cross-spawn": "^6.0.6"
+  }
+}

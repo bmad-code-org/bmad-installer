@@ -1,0 +1,20 @@
+{
+  "roots": ["/project/.agents/skills"],
+  "skills": [
+    { "name": "bmad", "path": "/project/.agents/skills/bmad", "module": "core-tools" },
+    { "name": "bmad-prd", "path": "/project/.agents/skills/bmad-prd", "module": "method" }
+  ],
+  "documents": [],
+  "topics": [],
+  "problems": [],
+  "migrations": [
+    {
+      "module": "method",
+      "path": "v6-v7-migration.toml",
+      "file": "/project/.agents/skills/bmod-method/v6-v7-migration.toml",
+      "from": "6",
+      "to": "7",
+      "title": "Move v6 planning and implementation artifacts into the v7 initiative layout"
+    }
+  ]
+}

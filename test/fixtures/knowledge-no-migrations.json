@@ -1,0 +1,9 @@
+{
+  "roots": ["/project/.agents/skills"],
+  "skills": [
+    { "name": "bmad", "path": "/project/.agents/skills/bmad", "module": "core-tools" }
+  ],
+  "documents": [],
+  "topics": [],
+  "problems": []
+}

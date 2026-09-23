@@ -1,0 +1,19 @@
+[
+  {
+    "name": "bmad",
+    "status": "installed",
+    "source": "bmad-code-org/BMAD-METHOD",
+    "ref": null,
+    "hash": "4f1c9a2b7d3e5601",
+    "path": "/project/.agents/skills/bmad",
+    "scope": "project",
+    "agents": ["Claude Code", "Codex"],
+    "mode": "symlink",
+    "security": null
+  },
+  {
+    "name": "bmod-nope",
+    "status": "skipped",
+    "reason": "No matching skill found in source"
+  }
+]
