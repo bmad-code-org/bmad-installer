@@ -1,0 +1,45 @@
+modules:
+  - code: core-tools
+    name: BMad Core Tools
+    description: Brainstorming, research, review, party mode, customization
+    source: bmad-code-org/BMAD-METHOD
+    record: bmod-core-tools
+    always: true
+
+  - code: method
+    aliases: [bmm]
+    name: BMad Method
+    description: Plan, spec and build software with agile AI agents
+    source: bmad-code-org/BMAD-METHOD
+    record: bmod-method
+    default: true
+    message: |
+      BMad Method is installed.
+      Once setup is done, ask the `bmad` skill what to do next.
+    bundles:
+      - code: planning
+        name: Planning
+        description: Brief, PRD, UX, architecture, spec
+        default: true
+        skills: [bmad-product-brief, bmad-prfaq, bmad-prd, bmad-ux, bmad-architecture, bmad-spec, bmad-project-context]
+      - code: build
+        name: Build
+        description: Epics and stories, sprint planning, build, review, course correction, retrospective
+        default: true
+        skills: [bmad-create-epics-and-stories, bmad-sprint-planning, bmad-build, bmad-build-auto, bmad-code-review, bmad-correct-course, bmad-retrospective, bmad-qa-generate-e2e-tests]
+      - code: agents
+        name: Agent personas
+        description: Analyst, architect, developer, PM and UX designer agents
+        default: true
+        skills: [bmad-agent-analyst, bmad-agent-architect, bmad-agent-dev, bmad-agent-pm, bmad-agent-ux-designer]
+      - code: extras
+        name: Extras
+        description: Preview ticketing and the walkthrough
+        default: false
+        skills: [bmad-preview-ticketing, bmad-walkthrough]
+
+  - code: cis
+    name: BMad Creative Intelligence Suite
+    description: Innovation, brainstorming, problem-solving
+    source: bmad-code-org/bmad-module-creative-intelligence-suite
+    record: bmod-cis

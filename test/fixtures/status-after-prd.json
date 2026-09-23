@@ -1,0 +1,76 @@
+{
+  "mode": "status",
+  "module": null,
+  "bmad_exists": false,
+  "bmad": { "skill": "bmad", "version": "6.13.0-next", "module": "core-tools" },
+  "shared_scripts": "missing",
+  "custom_gitignore": "missing",
+  "modules": [
+    {
+      "module": "core-tools",
+      "folder": "bmod-core-tools",
+      "version": "6.13.0-next",
+      "update_source": "github:bmad-code-org/BMAD-METHOD/skills",
+      "skills": ["bmad"],
+      "absent_skills": [
+        "bmad-advanced-elicitation",
+        "bmad-brainstorming",
+        "bmad-customize",
+        "bmad-deep-recon",
+        "bmad-forge-idea",
+        "bmad-party-mode",
+        "bmad-review"
+      ],
+      "scripts": "missing",
+      "update": {
+        "state": "current",
+        "source": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/skills/bmod-core-tools/bmod.toml",
+        "source_version": "6.13.0-next"
+      }
+    },
+    {
+      "module": "method",
+      "folder": "bmod-method",
+      "version": "6.13.0-next",
+      "update_source": "github:bmad-code-org/BMAD-METHOD/skills",
+      "skills": ["bmad-prd"],
+      "absent_skills": [
+        "bmad-agent-analyst",
+        "bmad-agent-architect",
+        "bmad-agent-dev",
+        "bmad-agent-pm",
+        "bmad-agent-ux-designer",
+        "bmad-architecture",
+        "bmad-build",
+        "bmad-build-auto",
+        "bmad-code-review",
+        "bmad-correct-course",
+        "bmad-create-epics-and-stories",
+        "bmad-preview-ticketing",
+        "bmad-prfaq",
+        "bmad-product-brief",
+        "bmad-project-context",
+        "bmad-qa-generate-e2e-tests",
+        "bmad-retrospective",
+        "bmad-spec",
+        "bmad-sprint-planning",
+        "bmad-ux",
+        "bmad-walkthrough"
+      ],
+      "scripts": "missing",
+      "update": {
+        "state": "current",
+        "source": "https://raw.githubusercontent.com/bmad-code-org/BMAD-METHOD/main/skills/bmod-method/bmod.toml",
+        "source_version": "6.13.0-next"
+      }
+    }
+  ],
+  "missing_module_records": [],
+  "pending_questions": [],
+  "unmet_requirements": [],
+  "unmet_recommendations": [],
+  "problems": [],
+  "legacy_leftovers": [],
+  "current": false,
+  "next": "bmad setup"
+}

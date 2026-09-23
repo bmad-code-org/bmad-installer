@@ -1,0 +1,174 @@
+intro: |-
+  BMad Installer installs BMad modules as agent skills.
+  It is free and open source.
+  Installs run through the skills CLI (npx skills). You need uv installed.
+
+  Docs     https://docs.bmad-method.org
+  GitHub   https://github.com/bmad-code-org/BMAD-METHOD
+  Discord  https://discord.gg/gk8jAdXWmj
+  YouTube  https://www.youtube.com/@BMadCode
+  X        https://x.com/BMadCode
+
+  Support: star the repo, https://buymeacoffee.com/bmad
+  Contact: contact@bmadcode.com
+
+updateAvailable: |-
+  You are using version {current} but {latest} is available.
+  To update, exit and first run:
+  npm cache clean --force && npx bmad-method@{tag} install
+
+nodeTooOld: |-
+  Node {version} is too old. This installer needs Node 22 or newer.
+  Install Node 22, then run this again.
+
+nodeBelowSkillsFloor: |-
+  Node {version} is below the 22.20.0 the skills CLI asks for.
+  Installs usually still work. Upgrade Node if you hit errors.
+
+uvMissing: |-
+  uv is not installed. The BMad scripts need it.
+  Install it with:
+  {installCommand}
+  More ways: https://docs.astral.sh/uv/getting-started/installation/
+
+uvInstall:
+  darwin: "curl -LsSf https://astral.sh/uv/install.sh | sh"
+  linux: "curl -LsSf https://astral.sh/uv/install.sh | sh"
+  win32: 'powershell -c "irm https://astral.sh/uv/install.ps1 | iex"'
+
+wslWindowsNode: |-
+  This is Windows Node.js started from a WSL shell.
+  Install Node inside WSL and run this again from the WSL terminal.
+
+needsTerminal: |-
+  This installer needs an interactive terminal.
+  Run it in a terminal, or add --yes to install without prompts.
+
+insideAgent: |-
+  This is running inside {agent}.
+  Run the installer in a terminal, or add --yes to install without prompts.
+
+directoryPrompt: "Where should BMad be installed?"
+
+directoryCreateConfirm: "{directory} does not exist. Create it?"
+
+directoryConfirm: "Install into {directory}?"
+
+legacyManifest: |-
+  Found an older BMad install at _bmad/_config/manifest.yaml.
+  This installer leaves it alone.
+
+existingInstallPrompt: "BMad is already installed here. What do you want to do?"
+
+existingInstallModify: "Add or change modules"
+
+existingInstallUpdate: "Update what is installed"
+
+foundModules: "Found these modules:"
+
+installedSuffix: "(installed {version})"
+
+installedSuffixNoVersion: "(installed)"
+
+modulesPrompt: "Which modules do you want?"
+
+bundlesPrompt: "Which parts of {module} do you want?"
+
+deprecatedModule: "{module} is deprecated. {reason}"
+
+beforeSkillsPicker: |-
+  The skills CLI takes over for the first install.
+  Pick the coding agents to install to.
+  If it asks for a scope, keep Project.
+  If it asks for a method, keep Symlink.
+  Confirm, and this installer picks up again when it is done.
+
+firstInstallNotInProject: |-
+  The skills CLI did not install into {directory}.
+  Nothing was added to this project.
+  If you picked Global scope, the skills went to the global skills dir.
+  Run the installer again and keep the Project scope.
+
+bundleSkillUnknown: "Skipped skills that {module} no longer lists: {skills}"
+
+installingSpinner: "Installing {what}"
+
+statusSpinner: "Reading the BMad install"
+
+nothingToUpdate: "No BMad install here to update. Run npx bmad-method install first."
+
+nothingInstalled: "There is no BMad install here. Run npx bmad-method install first."
+
+updateSpinnerDone: "Update finished"
+
+migrationsAvailable: "Migrations are available for this upgrade:"
+
+migrationLine: "{title} ({module}, {from} to {to})"
+
+reportTitle: "BMad install"
+
+reportCurrent: "Everything the modules ask for is in place."
+
+reportNotCurrent: "Not finished yet. Next: {next}"
+
+reportModule: "{name} {version}, {count} skills installed"
+
+reportAlsoAvailable: "  Also in {code}: {skills}"
+
+reportMissingRecord: "  Missing module record. Install it with: {install}"
+
+reportUnmet: "  {skill} needs {requires} {minimum} ({state}). Install it with: {install}"
+
+reportPendingQuestions: "{count} setup questions are still unanswered."
+
+reportProblem: "Problem: {message}"
+
+reportLegacy: "Left over from an older install: {path}"
+
+reportFailure: "Failed to install {skill}: {error}"
+
+closing: |-
+  BMad is installed in:
+  {directory}
+  Open your coding agent in this directory.
+
+  Ask it to run: bmad setup
+  Setup asks the configuration questions and finishes the install.
+  Configuration and customization are its job from now on.
+
+  Three ways to change this install later:
+    ask the bmad skill
+    npx bmad-method update
+    npx skills update
+
+  npx skills remove removes skills. This installer never removes anything.
+
+  Going direct with the skills CLI: a module is its bmod-<code> record
+  skill plus the skills it requires.
+  A partial install is one the bmad skill cannot see or run.
+
+  After adding or updating any skill by any route,
+  ask the bmad skill to update. Only it reconciles what is installed.
+
+cancelled: "Cancelled. Anything already installed is still there."
+
+droppedFlags:
+  custom-source: "--custom-source is gone. Install those with npx skills add <source>."
+  set: "--set is gone. The bmad setup skill asks these questions."
+  list-options: "--list-options is gone. The bmad setup skill asks these questions."
+  user-name: "--user-name is gone. The bmad setup skill asks these questions."
+  communication-language: "--communication-language is gone. The bmad setup skill asks these questions."
+  document-output-language: "--document-output-language is gone. The bmad setup skill asks these questions."
+  output-folder: "--output-folder is gone. The bmad setup skill asks these questions."
+  channel: "--channel is gone. Modules install from each repo's main branch."
+  all-stable: "--all-stable is gone. Modules install from each repo's main branch."
+  all-next: "--all-next is gone. Modules install from each repo's main branch."
+  next: "--next is gone. Modules install from each repo's main branch."
+  pin: "--pin is gone. Modules install from each repo's main branch."
+  shims: "--shims is gone. Shims are no longer shipped."
+  no-shims: "--no-shims is gone. Shims are no longer shipped."
+  list-tools: "--list-tools is gone. Tool ids are the skills CLI --agent ids; a wrong one lists the valid ones."
+
+droppedUninstall: |-
+  This installer does not remove anything.
+  Remove skills with npx skills remove.
