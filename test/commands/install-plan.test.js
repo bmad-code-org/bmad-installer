@@ -101,13 +101,15 @@ test('memberCalls merges modules that share a source and skips empty ones', () =
   const report = statusOf()
   report.modules[0].absent_skills = []
   const { calls } = memberCalls(
-    [{ code: 'core-tools', bundles: null }, { code: 'method', bundles: ['extras'] }],
+    [{ code: 'core-tools', bundles: null }, { code: 'method', bundles: ['agents'] }],
     modules,
     report,
   )
 
   assert.equal(calls.length, 1)
-  assert.deepEqual(calls[0].skills, ['bmad-preview-ticketing', 'bmad-walkthrough'])
+  assert.deepEqual(calls[0].skills, [
+    'bmad-agent-analyst', 'bmad-agent-architect', 'bmad-agent-dev', 'bmad-agent-pm', 'bmad-agent-ux-designer',
+  ])
   assert.equal(calls[0].label, 'BMad Method')
 })
 

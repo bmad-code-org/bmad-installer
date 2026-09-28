@@ -17,10 +17,9 @@ import {
 const METHOD_RECORD_SKILLS = [
   'bmad-agent-analyst', 'bmad-agent-architect', 'bmad-agent-dev', 'bmad-agent-pm',
   'bmad-agent-ux-designer', 'bmad-architecture', 'bmad-build', 'bmad-build-auto',
-  'bmad-code-review', 'bmad-correct-course', 'bmad-create-epics-and-stories', 'bmad-prd',
-  'bmad-preview-ticketing', 'bmad-prfaq', 'bmad-product-brief', 'bmad-project-context',
-  'bmad-qa-generate-e2e-tests', 'bmad-retrospective', 'bmad-spec', 'bmad-sprint-planning',
-  'bmad-ux', 'bmad-walkthrough',
+  'bmad-code-review', 'bmad-correct-course', 'bmad-prd', 'bmad-prfaq', 'bmad-product-brief',
+  'bmad-project-context', 'bmad-qa-generate-e2e-tests', 'bmad-retrospective', 'bmad-spec',
+  'bmad-ticket', 'bmad-ux', 'bmad-walkthrough',
 ]
 
 /** @type {string[]} */
@@ -63,7 +62,7 @@ test('loads and validates the real modules.yaml', async () => {
   assert.equal(method.record, 'bmod-method')
   assert.equal(method.source, 'bmad-code-org/BMAD-METHOD')
   assert.ok(method.message && method.message.length > 0)
-  assert.deepEqual(bundleCodes(method, () => true), ['planning', 'build', 'agents', 'extras'])
+  assert.deepEqual(bundleCodes(method, () => true), ['planning', 'build', 'agents'])
   assert.equal(must(modules, 'cis').bundles, undefined)
 })
 
@@ -82,8 +81,8 @@ test('parseModulesFlag reads the code:bundle+bundle,code grammar', async () => {
     { code: 'method', bundles: ['planning', 'build'] },
     { code: 'cis', bundles: null },
   ])
-  assert.deepEqual(parseModulesFlag(' method : planning + extras , cis ', modules), [
-    { code: 'method', bundles: ['planning', 'extras'] },
+  assert.deepEqual(parseModulesFlag(' method : planning + agents , cis ', modules), [
+    { code: 'method', bundles: ['planning', 'agents'] },
     { code: 'cis', bundles: null },
   ])
   assert.deepEqual(parseModulesFlag('bmm', modules), [
@@ -143,7 +142,7 @@ test('defaultChoices takes default modules with their default bundles', async ()
 test('bundleCodes filters', async () => {
   const method = must(await loadModules(), 'method')
   assert.deepEqual(bundleCodes(method, (bundle) => bundle.default === true), ['planning', 'build', 'agents'])
-  assert.deepEqual(bundleCodes(method, (bundle) => bundle.default !== true), ['extras'])
+  assert.deepEqual(bundleCodes(method, (bundle) => bundle.default !== true), [])
 })
 
 test('skillsToInstall without bundles takes the whole record list', async () => {
@@ -161,12 +160,12 @@ test('skillsToInstall keeps module order and reports unknown skills', async () =
     'bmad-product-brief', 'bmad-prfaq', 'bmad-prd', 'bmad-ux',
     'bmad-architecture', 'bmad-spec', 'bmad-project-context',
   ])
-  assert.equal(install[7], 'bmad-create-epics-and-stories')
+  assert.equal(install[7], 'bmad-ticket')
   assert.deepEqual(unknown, [])
 
-  const partial = skillsToInstall(method, ['extras'], ['bmad-walkthrough'])
-  assert.deepEqual(partial.install, ['bmad-walkthrough'])
-  assert.deepEqual(partial.unknown, ['bmad-preview-ticketing'])
+  const partial = skillsToInstall(method, ['agents'], ['bmad-agent-dev'])
+  assert.deepEqual(partial.install, ['bmad-agent-dev'])
+  assert.deepEqual(partial.unknown, ['bmad-agent-analyst', 'bmad-agent-architect', 'bmad-agent-pm', 'bmad-agent-ux-designer'])
 })
 
 test('groupBySource keeps modules.yaml order', async () => {
