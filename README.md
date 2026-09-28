@@ -62,7 +62,7 @@ The skills CLI decides. With one agent it copies the skills into that agent's fo
 | `-h, --help` | Show the help |
 | `-v, --version` | Show the version |
 
-`--modules` takes module codes. `method` (alias `bmm`) has the bundles `planning`, `build`, `agents` and `extras`; `cis` has none. A module named without `:` takes its default bundles. The core tools module installs on every run.
+`--modules` takes module codes. `method` (alias `bmm`) has the bundles `planning`, `build` and `agents`; `cis` has none. A module named without `:` takes its default bundles. The core tools module installs on every run.
 
 A 6.12 flag this installer dropped prints one line about it, then exits without installing.
 

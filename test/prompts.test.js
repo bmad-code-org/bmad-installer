@@ -51,18 +51,18 @@ test('an installed module with no known version gets the plain suffix', () => {
 
 test('the bundle picker offers every bundle and ticks the default ones', () => {
   const picker = bundlePicker(method, { installedSkills: [] })
-  assert.deepEqual(picker.options.map((option) => option.value), ['planning', 'build', 'agents', 'extras'])
+  assert.deepEqual(picker.options.map((option) => option.value), ['planning', 'build', 'agents'])
   assert.deepEqual(picker.initialValues, ['planning', 'build', 'agents'])
 })
 
 test('a bundle whose skills are all installed is ticked even when it is not a default', () => {
-  const extras = method.bundles?.find((bundle) => bundle.code === 'extras')
-  assert.ok(extras)
-  const picker = bundlePicker(method, { installedSkills: extras.skills })
-  assert.deepEqual(picker.initialValues, ['planning', 'build', 'agents', 'extras'])
+  const extra = { code: 'extra', name: 'Extra', description: 'Not a default', skills: ['bmad-walkthrough'] }
+  const withExtra = { ...method, bundles: [...(method.bundles ?? []), extra] }
+  const picker = bundlePicker(withExtra, { installedSkills: extra.skills })
+  assert.deepEqual(picker.initialValues, ['planning', 'build', 'agents', 'extra'])
 
-  const partial = bundlePicker(method, { installedSkills: extras.skills.slice(0, 1) })
-  assert.equal(partial.initialValues.includes('extras'), false)
+  const none = bundlePicker(withExtra, { installedSkills: [] })
+  assert.equal(none.initialValues.includes('extra'), false)
 })
 
 test('a module without bundles offers nothing', () => {

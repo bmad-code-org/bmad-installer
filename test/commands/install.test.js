@@ -33,10 +33,9 @@ test('--yes takes the default modules and asks nothing', async (t) => {
   assert.deepEqual(asked, ['intro'])
   const members = only(requests)[1]
   assert.equal(members.agents, null)
-  for (const skill of ['bmad-prd', 'bmad-build', 'bmad-agent-dev', 'bmad-brainstorming']) {
+  for (const skill of ['bmad-prd', 'bmad-build', 'bmad-ticket', 'bmad-walkthrough', 'bmad-agent-dev', 'bmad-brainstorming']) {
     assert.ok(members.skills.includes(skill), `missing ${skill}`)
   }
-  assert.equal(members.skills.includes('bmad-walkthrough'), false)
 })
 
 test('a skipped skill is reported and turns the run into an exit 1', async (t) => {
