@@ -1,6 +1,6 @@
 {
   "name": "bmad-method",
-  "version": "6.13.0-next.0",
+  "version": "7.0.0-next.0",
   "description": "Installs and updates BMad Method modules. A thin wrapper around the skills CLI.",
   "license": "MIT",
   "author": "Brian (BMad) Madison",
