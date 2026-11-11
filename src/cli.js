@@ -5,7 +5,7 @@ import { install } from './commands/install.js'
 import { status } from './commands/status.js'
 import { update } from './commands/update.js'
 import { MessagesError, loadMessages, message } from './messages.js'
-import { ModulesError, loadModules } from './modules.js'
+import { ModulesError, UnknownModuleError, loadModules, parseModulesFlag } from './modules.js'
 import { PreflightError } from './preflight.js'
 import * as prompts from './prompts.js'
 import { createRunner } from './run.js'
@@ -180,6 +180,10 @@ function reportError(err, io, context) {
     io.stderr.write(`${err.message}\n${HELP_HINT}\n`)
     return 2
   }
+  if (err instanceof UnknownModuleError && context.messages) {
+    io.stderr.write(`${message(context.messages, 'unknownModules', { codes: err.code, known: err.known })}\n`)
+    return 2
+  }
   if (err instanceof AgentsError && context.messages) {
     io.stderr.write(`${message(context.messages, 'unknownTools', { ids: err.message })}\n`)
     return 2
@@ -229,6 +233,7 @@ export async function main(argv, io) {
     const modules = await loadModules()
     const agents = await loadAgents()
     if (options.tools) parseToolsFlag(options.tools, agents)
+    if (options.modules) parseModulesFlag(options.modules, modules)
     const runner = createRunner({ debug, log: (line) => out.stderr.write(`${line}\n`) })
     const deps = {
       runner,

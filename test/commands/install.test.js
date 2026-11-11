@@ -6,6 +6,7 @@ import {
   RECORDS,
   fakeBmadScripts,
   fakePrompts,
+  fakeRunner,
   fakeSkillsCli,
   listed,
   makeDeps,
@@ -137,15 +138,31 @@ test('choosing quick update on an existing install runs the update flow', async 
   const { prompts, said, asked } = fakePrompts({ existing: 'update' })
   const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad'), listed('bmod-method')]] })
   const { scripts } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
+  const { runner, calls } = fakeRunner()
 
   const code = await install(
     options({ directory: dir }),
-    makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }),
+    makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, runner }),
   )
 
   assert.equal(code, 0)
+  assert.equal(calls.filter((argv) => argv.join(' ') === 'uv --version').length, 1, 'preflight ran twice')
   assert.ok(asked.includes('existing'))
   assert.equal(asked.includes('modules'), false)
   assert.equal(only(requests, 'update').length, 1)
   assert.deepEqual(said.says.at(-1), messages.updateSpinnerDone)
+})
+
+test('unticking an installed module keeps it and says so', async (t) => {
+  const dir = await tempDir(t)
+  const { prompts, said } = fakePrompts({ modules: ['founder'] })
+  const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad'), listed('bmod-core-tools'), listed('bmod-method')], RECORDS.map(listed)] })
+  const installed = statusOf()
+  installed.modules.forEach((entry) => { entry.absent_skills = [] })
+  const { scripts } = fakeBmadScripts({ statuses: [installed, installed, installed] })
+
+  await install(options({ directory: dir }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }))
+
+  assert.ok(said.warns.includes(messages.modulesKept.replace('{modules}', 'BMad Method')), said.warns.join('\n'))
+  assert.deepEqual(only(requests).map((request) => request.source), ['bmad-code-org/BMAD-METHOD/skills/founder'])
 })

@@ -61,10 +61,11 @@ test('the agent picker shows the shared folder as one entry and the own-folder a
   assert.deepEqual(picker.initialValues, ['claude-code'])
 
   const shared = picker.options[1]
-  assert.equal(shared.label, messages.universalLabel)
-  assert.ok(shared.hint.startsWith('Cursor, '), shared.hint)
-  assert.ok(/ and \d+ more$/.test(shared.hint), shared.hint)
-  assert.equal(picker.options[0].hint, '.claude/skills, found on this machine')
+  assert.ok(/^Shared \.agents\/skills folder: Cursor, \w.* and \d+ more$/.test(shared.label), shared.label)
+  assert.equal(shared.hint, '.agents/skills')
+  assert.equal(picker.options[0].label, 'Claude Code, found on this machine')
+  assert.equal(picker.options[0].hint, '.claude/skills')
+  assert.equal(picker.options.find((option) => option.value === 'aider-desk')?.label, 'AiderDesk')
   assert.ok(picker.searchText.universal.includes('codex'))
   assert.ok(picker.searchText['claude-code'].includes('claude code'))
 })

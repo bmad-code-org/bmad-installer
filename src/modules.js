@@ -16,6 +16,19 @@ export class ModulesError extends Error {
   }
 }
 
+export class UnknownModuleError extends ModulesError {
+  /**
+   * @param {string} code
+   * @param {ModuleDefinition[]} modules
+   */
+  constructor(code, modules) {
+    super(`unknown module "${code}"`)
+    this.name = 'UnknownModuleError'
+    this.code = code
+    this.known = modules.filter((module) => !module.always).map((module) => module.code).join(', ')
+  }
+}
+
 /**
  * @param {unknown} value
  * @param {string} where
@@ -127,7 +140,7 @@ export function parseModulesFlag(value, modules) {
     const codeOrAlias = token.trim()
     if (codeOrAlias === '') continue
     const module = findModule(modules, codeOrAlias)
-    if (!module) throw new ModulesError(`unknown module "${codeOrAlias}"`)
+    if (!module) throw new UnknownModuleError(codeOrAlias, modules)
     if (!codes.includes(module.code)) codes.push(module.code)
   }
   return codes

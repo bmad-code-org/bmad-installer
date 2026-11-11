@@ -70,7 +70,7 @@ export async function install(options, deps) {
   const directory = await resolveDirectory(options, deps, interactive)
   const existing = await readExisting(directory, deps)
   if (existing.codes.length > 0 && interactive && (await prompts.chooseExistingAction(messages)) === 'update') {
-    return update({ ...options, directory }, deps)
+    return update({ ...options, directory }, deps, { checked: true })
   }
 
   const chosen = chosenModules(await pickChoices(options, deps, existing), modules)
@@ -78,6 +78,10 @@ export async function install(options, deps) {
     if (module.deprecated) {
       prompts.warn(message(messages, 'deprecatedModule', { module: module.name, reason: module.deprecated }))
     }
+  }
+  const kept = modules.filter((module) => existing.codes.includes(module.code) && !chosen.includes(module))
+  if (kept.length > 0) {
+    prompts.warn(message(messages, 'modulesKept', { modules: kept.map((module) => module.name).join(', ') }))
   }
 
   const agents = await chooseAgents(options, deps, directory, interactive)

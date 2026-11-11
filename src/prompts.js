@@ -12,10 +12,10 @@ import {
   spinner,
   text,
 } from '@clack/prompts'
-import { UNIVERSAL_AGENT, isUniversal } from './agents.js'
+import { UNIVERSAL_AGENT, UNIVERSAL_DIR, isUniversal } from './agents.js'
 import { message } from './messages.js'
 
-const SHARED_NAMES_SHOWN = 4
+const SHARED_NAMES_SHOWN = 3
 
 /** @typedef {import('./agents.js').Agent} Agent */
 /** @typedef {Picker & { searchText: Record<string, string> }} AgentPicker */
@@ -173,19 +173,21 @@ export function agentPicker(messages, agents, options) {
     ...shared.filter((agent) => options.found.includes(agent.id)),
     ...shared.filter((agent) => !options.found.includes(agent.id)),
   ].map((agent) => agent.name)
+  // clack shows a hint only on the highlighted row, so what must always be seen goes in the label.
+  const shown = names.length > SHARED_NAMES_SHOWN
+    ? message(messages, 'universalNames', { names: names.slice(0, SHARED_NAMES_SHOWN).join(', '), count: names.length - SHARED_NAMES_SHOWN })
+    : names.join(', ')
   const universal = {
     value: UNIVERSAL_AGENT,
-    label: message(messages, 'universalLabel'),
-    hint: names.length > SHARED_NAMES_SHOWN
-      ? message(messages, 'universalHint', { names: names.slice(0, SHARED_NAMES_SHOWN).join(', '), count: names.length - SHARED_NAMES_SHOWN })
-      : names.join(', '),
+    label: message(messages, 'universalLabel', { names: shown }),
+    hint: UNIVERSAL_DIR,
     search: names.join(' '),
   }
   const own = agents.filter((agent) => !isUniversal(agent)).map((agent) => ({
     value: agent.id,
-    label: agent.name,
-    hint: options.detected.includes(agent.id) ? message(messages, 'agentFoundHint', { dir: agent.skillsDir }) : agent.skillsDir,
-    search: '',
+    label: options.detected.includes(agent.id) ? message(messages, 'agentFoundLabel', { name: agent.name }) : agent.name,
+    hint: agent.skillsDir,
+    search: agent.name,
   }))
   const rank = (/** @type {string} */ id) => (options.initial.includes(id) ? 0 : options.detected.includes(id) ? 1 : 2)
   const ordered = [universal, ...own].map((entry, index) => ({ entry, index }))

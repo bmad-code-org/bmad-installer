@@ -25,13 +25,15 @@ async function optionalStatus(deps, bmadSkillDir, projectRoot) {
 }
 
 /**
+ * `checked` is set when install already ran the preflight checks and hands over to update.
  * @param {CliOptions} options
  * @param {CommandDeps} deps
+ * @param {{ checked?: boolean }} [context]
  * @returns {Promise<number>}
  */
-export async function update(options, deps) {
+export async function update(options, deps, context = {}) {
   const { bmadScripts, messages, modules, prompts, runner, skillsCli, cwd } = deps
-  await runPreflight({ interactive: false, runner, messages, warn: prompts.warn })
+  if (!context.checked) await runPreflight({ interactive: false, runner, messages, warn: prompts.warn })
 
   const directory = resolve(cwd, options.directory ?? cwd)
   const before = await inspectInstall(directory, skillsCli)

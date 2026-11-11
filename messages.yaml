@@ -74,15 +74,23 @@ modulesPrompt: "Which modules do you want?"
 
 deprecatedModule: "{module} is deprecated. {reason}"
 
+modulesKept: |-
+  Still installed: {modules}. This installer never removes anything.
+  To remove a module, run npx skills remove with its skills.
+
 agentsPrompt: "Which coding agents should get the skills?"
 
 agentsPlaceholder: "Type to filter"
 
-agentFoundHint: "{dir}, found on this machine"
+agentFoundLabel: "{name}, found on this machine"
 
-universalLabel: "Shared .agents/skills folder"
+universalLabel: "Shared .agents/skills folder: {names}"
 
-universalHint: "{names} and {count} more"
+universalNames: "{names} and {count} more"
+
+unknownModules: |-
+  Unknown module: {codes}
+  Modules: {known}
 
 unknownTools: |-
   Unknown coding agent: {ids}
@@ -112,7 +120,7 @@ reportCurrent: "Everything the modules ask for is in place."
 
 reportNotCurrent: "Not finished yet. Next: {next}"
 
-reportModule: "{name} {version}, {count} skills installed"
+reportModule: "{name} {version}, skills installed: {count}"
 
 reportAlsoAvailable: "  Also in {code}: {skills}"
 
@@ -120,7 +128,7 @@ reportMissingRecord: "  Missing module record. Install it with: {install}"
 
 reportUnmet: "  {skill} needs {requires} {minimum} ({state}). Install it with: {install}"
 
-reportPendingQuestions: "{count} setup questions are still unanswered."
+reportPendingQuestions: "Setup questions still unanswered: {count}"
 
 reportProblem: "Problem: {message}"
 
