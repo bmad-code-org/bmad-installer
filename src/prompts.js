@@ -1,4 +1,5 @@
 import {
+  autocompleteMultiselect,
   cancel,
   confirm as confirmPrompt,
   intro,
@@ -11,8 +12,13 @@ import {
   spinner,
   text,
 } from '@clack/prompts'
+import { UNIVERSAL_AGENT, isUniversal } from './agents.js'
 import { message } from './messages.js'
 
+const SHARED_NAMES_SHOWN = 4
+
+/** @typedef {import('./agents.js').Agent} Agent */
+/** @typedef {Picker & { searchText: Record<string, string> }} AgentPicker */
 /** @typedef {import('./modules.js').ModuleDefinition} ModuleDefinition */
 /** @typedef {{ options: { value: string, label: string, hint: string }[], initialValues: string[] }} Picker */
 
@@ -68,13 +74,14 @@ export function fail(text) {
 }
 
 /**
+ * Stopping clears the line: the report that follows says what happened.
  * @param {string} text
- * @returns {{ stop(text?: string): void }}
+ * @returns {{ stop(): void }}
  */
 export function startSpinner(text) {
   const active = spinner()
   active.start(text)
-  return { stop: (done) => active.stop(done) }
+  return { stop: () => active.clear() }
 }
 
 /**
@@ -139,22 +146,6 @@ export function modulePicker(messages, modules, options) {
 }
 
 /**
- * @param {ModuleDefinition} module
- * @param {{ installedSkills: string[] }} options
- * @returns {Picker}
- */
-export function bundlePicker(module, options) {
-  const bundles = module.bundles ?? []
-  const installed = new Set(options.installedSkills)
-  return {
-    options: bundles.map((bundle) => ({ value: bundle.code, label: bundle.name, hint: bundle.description })),
-    initialValues: bundles
-      .filter((bundle) => bundle.default || bundle.skills.every((skill) => installed.has(skill)))
-      .map((bundle) => bundle.code),
-  }
-}
-
-/**
  * @param {Record<string, any>} messages
  * @param {ModuleDefinition[]} modules
  * @param {{ installedCodes: string[], installedVersions: Record<string, string> }} options
@@ -169,16 +160,59 @@ export async function chooseModules(messages, modules, options) {
 }
 
 /**
+ * One entry for every agent that reads `.agents/skills`, then the agents with a folder of their own.
+ * Preselected entries come first, then the ones found on this machine, then the rest in table order.
  * @param {Record<string, any>} messages
- * @param {ModuleDefinition} module
- * @param {{ installedSkills: string[] }} options
+ * @param {Agent[]} agents
+ * @param {{ initial: string[], detected: string[], found: string[] }} options
+ * @returns {AgentPicker}
+ */
+export function agentPicker(messages, agents, options) {
+  const shared = agents.filter((agent) => isUniversal(agent) && agent.id !== UNIVERSAL_AGENT)
+  const names = [
+    ...shared.filter((agent) => options.found.includes(agent.id)),
+    ...shared.filter((agent) => !options.found.includes(agent.id)),
+  ].map((agent) => agent.name)
+  const universal = {
+    value: UNIVERSAL_AGENT,
+    label: message(messages, 'universalLabel'),
+    hint: names.length > SHARED_NAMES_SHOWN
+      ? message(messages, 'universalHint', { names: names.slice(0, SHARED_NAMES_SHOWN).join(', '), count: names.length - SHARED_NAMES_SHOWN })
+      : names.join(', '),
+    search: names.join(' '),
+  }
+  const own = agents.filter((agent) => !isUniversal(agent)).map((agent) => ({
+    value: agent.id,
+    label: agent.name,
+    hint: options.detected.includes(agent.id) ? message(messages, 'agentFoundHint', { dir: agent.skillsDir }) : agent.skillsDir,
+    search: '',
+  }))
+  const rank = (/** @type {string} */ id) => (options.initial.includes(id) ? 0 : options.detected.includes(id) ? 1 : 2)
+  const ordered = [universal, ...own].map((entry, index) => ({ entry, index }))
+    .sort((a, b) => rank(a.entry.value) - rank(b.entry.value) || a.index - b.index)
+    .map(({ entry }) => entry)
+  return {
+    options: ordered.map(({ value, label, hint }) => ({ value, label, hint })),
+    initialValues: options.initial,
+    searchText: Object.fromEntries(ordered.map((entry) => [entry.value, `${entry.value} ${entry.label} ${entry.search}`.toLowerCase()])),
+  }
+}
+
+/**
+ * @param {Record<string, any>} messages
+ * @param {Agent[]} agents
+ * @param {{ initial: string[], detected: string[], found: string[] }} options
  * @returns {Promise<string[]>}
  */
-export async function chooseBundles(messages, module, options) {
-  return ensure(await multiselect({
-    message: message(messages, 'bundlesPrompt', { module: module.name }),
-    ...bundlePicker(module, options),
-    required: false,
+export async function chooseAgents(messages, agents, options) {
+  const { searchText, ...picker } = agentPicker(messages, agents, options)
+  return ensure(await autocompleteMultiselect({
+    message: message(messages, 'agentsPrompt'),
+    placeholder: message(messages, 'agentsPlaceholder'),
+    ...picker,
+    filter: (search, option) => (searchText[option.value] ?? '').includes(search.trim().toLowerCase()),
+    maxItems: 12,
+    required: true,
   }))
 }
 

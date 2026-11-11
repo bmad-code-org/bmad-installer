@@ -10,7 +10,7 @@ import { listArgv, parseListResults } from '../../src/skills-cli.js'
 const source = process.env.BMAD_INSTALLER_E2E_SOURCE
 const bin = fileURLToPath(new URL('../../bin/bmad-method.js', import.meta.url))
 const TIMEOUT_MS = 600_000
-const EXPECTED = ['bmad', 'bmod-core-tools', 'bmod-method', 'bmad-prd']
+const EXPECTED = ['bmad', 'bmod-core-tools', 'bmod-method', 'bmad-agent-pm', 'bmad-agent-po', 'bmad-facilitate']
 
 test('a real headless install lands the records, the members and the closing message', {
   skip: source ? false : 'set BMAD_INSTALLER_E2E_SOURCE to a local BMAD-METHOD checkout',
@@ -27,7 +27,7 @@ test('a real headless install lands the records, the members and the closing mes
       process.execPath, bin, 'install',
       '--yes',
       '--tools', 'claude-code',
-      '--modules', 'method:planning',
+      '--modules', 'method',
       '--directory', directory,
       '--no-telemetry',
     ],

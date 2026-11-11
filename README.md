@@ -23,12 +23,12 @@ Interactive, in a terminal:
 npx bmad-method
 ```
 
-It asks where to install, which modules and which parts of each module you want. The first skills install then hands over to the skills CLI, which shows its own agent picker if it finds none or several coding agents in the project. Later installs in the same run reuse that pick. The closing message names the directory and tells you to run `bmad setup` in your coding agent.
+It asks where to install, which modules you want and which coding agents get the skills. Each module installs whole; to pick single skills, use `npx skills add` directly. The installer then runs the skills CLI without prompts. The closing message names the directory and tells you to run `bmad setup` in your coding agent. It also shows the `npx bmad-method` command that repeats the install without prompts.
 
 Headless, for scripts and CI:
 
 ```
-npx bmad-method install -d ./my-app -m method:planning+build,cis -t claude-code,codex -y
+npx bmad-method install -d ./my-app -m method,cis -t claude-code,codex -y
 ```
 
 ## Where it can run
@@ -37,11 +37,11 @@ An interactive run needs a real terminal. It refuses to start inside a coding ag
 
 ## Choosing coding agents
 
-The installer keeps no list of coding agents. Agent ids and detection come from the skills CLI.
+The agent list is the skills CLI's own, copied into `agents.json` from the skills CLI version this installer ships with. `npx bmad-method --list-tools` prints the ids. Many agents (Codex, Cursor, Gemini CLI, GitHub Copilot and others) read the same `.agents/skills` folder, so the installer treats them as one choice, the `universal` id. Naming any of them in `--tools` means that folder.
 
-- Interactive without `--tools`: the skills CLI detects agents and shows its picker when it needs a choice. The pick is reused for the rest of the run.
-- `--tools <ids>`: every install goes to those agents and the picker never shows. The [skills CLI README](https://github.com/vercel-labs/skills#supported-agents) lists the valid ids.
-- `--yes` without `--tools`: the skills CLI chooses from the agents it detects.
+- Interactive without `--tools`: the installer shows a searchable agent picker. It preselects the agents that already hold BMad in this project, otherwise your last pick in the skills CLI, otherwise the agents found on this machine.
+- `--tools <ids>`: every install goes to those agents and the picker never shows. Ids and display names both work. An unknown id stops the run before anything installs.
+- `--yes` without `--tools`: every agent found on this machine, the way the skills CLI's own `--yes` picks. When none is found, the shared `.agents/skills` folder only (the `universal` id).
 
 ## Where skills land
 
@@ -52,8 +52,9 @@ The skills CLI decides. With one agent it copies the skills into that agent's fo
 | Flag | What it does |
 | --- | --- |
 | `-d, --directory <path>` | Project directory, default the current one |
-| `-m, --modules <spec>` | Modules to install, e.g. `method:planning+build,cis` |
-| `-t, --tools <ids>` | Comma-separated skills CLI agent ids to install to |
+| `-m, --modules <codes>` | Comma-separated module codes to install, e.g. `method,cis` |
+| `-t, --tools <ids>` | Comma-separated coding agent ids to install to |
+| `--list-tools` | List the coding agent ids `--tools` takes |
 | `-y, --yes` | Take the defaults and ask nothing |
 | `--action <name>` | `install`, `update` or `quick-update`. Kept so scripts written for the 6.12 installer still work |
 | `--no-telemetry` | Turn off skills CLI telemetry and the skills.sh install counts |
@@ -62,7 +63,7 @@ The skills CLI decides. With one agent it copies the skills into that agent's fo
 | `-h, --help` | Show the help |
 | `-v, --version` | Show the version |
 
-`--modules` takes module codes. `method` (alias `bmm`) has the bundles `planning`, `build` and `agents`; `cis` has none. A module named without `:` takes its default bundles. The core tools module installs on every run.
+`--modules` takes module codes: `method` (alias `bmm`) and `cis`. Each module installs every skill its record lists. The core tools module installs on every run.
 
 A 6.12 flag this installer dropped prints one line about it, then exits without installing.
 
@@ -84,7 +85,7 @@ After adding or updating any skill by any route, ask the `bmad` skill to update.
 
 ## Installing with the skills CLI directly
 
-If you install with the skills CLI directly, a module is its `bmod-<code>` record skill plus the skills that record lists. A record without its skills, or skills without their record, is a partial install: the `bmad` skill cannot see or run it. `npx bmad-method status` lists missing records and unmet requirements.
+If you install with the skills CLI directly, a module is its record skill plus the skills that record lists. The record is a `bmod-<code>` skill, or, for a module of one skill, that skill itself. A record without its skills, or skills without their record, is a partial install: the `bmad` skill cannot see or run it. `npx bmad-method status` lists missing records and unmet requirements.
 
 ## Troubleshooting
 

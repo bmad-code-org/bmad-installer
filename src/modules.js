@@ -3,9 +3,7 @@ import { join } from 'node:path'
 import { parse } from 'yaml'
 import { packageRoot } from './version.js'
 
-/** @typedef {{ code: string, name: string, description: string, default?: boolean, skills: string[] }} Bundle */
-/** @typedef {{ code: string, name: string, description: string, source: string, record: string, aliases?: string[], always?: boolean, default?: boolean, deprecated?: string, message?: string, bundles?: Bundle[] }} ModuleDefinition */
-/** @typedef {{ code: string, bundles: string[] | null }} ModuleChoice */
+/** @typedef {{ code: string, name: string, description: string, source: string, record: string, aliases?: string[], always?: boolean, default?: boolean, deprecated?: string, message?: string }} ModuleDefinition */
 
 const SOURCE_PATTERN = /^[\w.-]+\/[\w.-]+$/
 const SOURCE_OVERRIDE = 'BMAD_INSTALLER_SOURCE_OVERRIDE'
@@ -29,29 +27,6 @@ function requireText(value, where, field) {
     throw new ModulesError(`${where}: ${field} must be a non-empty string`)
   }
   return value
-}
-
-/**
- * @param {any} entry
- * @param {string} where
- * @returns {Bundle}
- */
-function validateBundle(entry, where) {
-  const code = requireText(entry?.code, where, 'code')
-  const at = `${where} bundle "${code}"`
-  const skills = entry.skills
-  if (!Array.isArray(skills) || skills.length === 0) {
-    throw new ModulesError(`${at}: skills must be a non-empty array`)
-  }
-  /** @type {Bundle} */
-  const bundle = {
-    code,
-    name: requireText(entry.name, at, 'name'),
-    description: requireText(entry.description, at, 'description'),
-    skills: skills.map((skill, index) => requireText(skill, at, `skills[${index}]`)),
-  }
-  if (entry.default === true) bundle.default = true
-  return bundle
 }
 
 /**
@@ -85,14 +60,6 @@ function validateModule(entry, index, taken) {
   if (entry.default === true) module.default = true
   if (entry.deprecated !== undefined) module.deprecated = requireText(entry.deprecated, where, 'deprecated')
   if (entry.message !== undefined) module.message = requireText(entry.message, where, 'message')
-  if (entry.bundles !== undefined) {
-    if (!Array.isArray(entry.bundles)) throw new ModulesError(`${where}: bundles must be an array`)
-    const bundles = entry.bundles.map((/** @type {any} */ bundle) => validateBundle(bundle, where))
-    if (new Set(bundles.map((/** @type {Bundle} */ bundle) => bundle.code)).size !== bundles.length) {
-      throw new ModulesError(`${where}: bundle codes must be unique`)
-    }
-    module.bundles = bundles
-  }
   return module
 }
 
@@ -123,89 +90,29 @@ export function findModule(modules, codeOrAlias) {
 }
 
 /**
- * @param {ModuleDefinition} module
- * @param {(bundle: Bundle) => boolean} filter
- * @returns {string[]}
- */
-export function bundleCodes(module, filter) {
-  return (module.bundles ?? []).filter(filter).map((bundle) => bundle.code)
-}
-
-/**
- * @param {ModuleDefinition} module
- * @param {string} list
- * @returns {string[]}
- */
-function parseBundleList(module, list) {
-  return list.split('+').map((raw) => {
-    const code = raw.trim()
-    if (!(module.bundles ?? []).some((bundle) => bundle.code === code)) {
-      throw new ModulesError(`unknown bundle "${code}" for module "${module.code}"`)
-    }
-    return code
-  })
-}
-
-/**
  * @param {string} value
  * @param {ModuleDefinition[]} modules
- * @returns {ModuleChoice[]}
+ * @returns {string[]}
  */
 export function parseModulesFlag(value, modules) {
-  /** @type {ModuleChoice[]} */
-  const choices = []
+  /** @type {string[]} */
+  const codes = []
   for (const token of value.split(',')) {
-    const trimmed = token.trim()
-    if (trimmed === '') continue
-    const separator = trimmed.indexOf(':')
-    const codeOrAlias = (separator === -1 ? trimmed : trimmed.slice(0, separator)).trim()
+    const codeOrAlias = token.trim()
+    if (codeOrAlias === '') continue
     const module = findModule(modules, codeOrAlias)
     if (!module) throw new ModulesError(`unknown module "${codeOrAlias}"`)
-    const listed = separator === -1
-      ? bundleCodes(module, (bundle) => bundle.default === true)
-      : parseBundleList(module, trimmed.slice(separator + 1))
-    const existing = choices.find((choice) => choice.code === module.code)
-    if (!existing) choices.push({ code: module.code, bundles: module.bundles ? [...new Set(listed)] : null })
-    else if (existing.bundles) existing.bundles = [...new Set([...existing.bundles, ...listed])]
+    if (!codes.includes(module.code)) codes.push(module.code)
   }
-  return choices
+  return codes
 }
 
 /**
  * @param {ModuleDefinition[]} modules
- * @returns {ModuleChoice[]}
+ * @returns {string[]}
  */
-export function defaultChoices(modules) {
-  return modules
-    .filter((module) => module.default === true)
-    .map((module) => ({
-      code: module.code,
-      bundles: module.bundles ? bundleCodes(module, (bundle) => bundle.default === true) : null,
-    }))
-}
-
-/**
- * @param {ModuleDefinition} module
- * @param {string[] | null} chosenBundles
- * @param {string[]} recordSkills
- * @returns {{ install: string[], unknown: string[] }}
- */
-export function skillsToInstall(module, chosenBundles, recordSkills) {
-  if (!chosenBundles || !module.bundles) return { install: [...recordSkills], unknown: [] }
-  const chosen = new Set(chosenBundles)
-  /** @type {Set<string>} */
-  const wanted = new Set()
-  for (const bundle of module.bundles) {
-    if (!chosen.has(bundle.code)) continue
-    for (const skill of bundle.skills) wanted.add(skill)
-  }
-  const available = new Set(recordSkills)
-  /** @type {string[]} */
-  const install = []
-  /** @type {string[]} */
-  const unknown = []
-  for (const skill of wanted) (available.has(skill) ? install : unknown).push(skill)
-  return { install, unknown }
+export function defaultCodes(modules) {
+  return modules.filter((module) => module.default === true).map((module) => module.code)
 }
 
 /**

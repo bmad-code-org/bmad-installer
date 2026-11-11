@@ -1,9 +1,10 @@
 import { mkdir, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { pickedAgents, skillsLockPath, snapshotLock } from '../harness.js'
-import { hasSkills, inspectInstall } from '../installed.js'
+import { UNIVERSAL_AGENT, agentsHolding, collapseUniversal, detectAgents, detectContext, parseToolsFlag } from '../agents.js'
+import { lastPickedAgents } from '../harness.js'
+import { BMAD_SKILL, inspectInstall, installedModuleCodes } from '../installed.js'
 import { message } from '../messages.js'
-import { defaultChoices, findModule, parseModulesFlag } from '../modules.js'
+import { defaultCodes, findModule, parseModulesFlag } from '../modules.js'
 import { Cancelled } from '../prompts.js'
 import { distTag, newerVersion } from '../self-update.js'
 import { versionsByCode } from './install-plan.js'
@@ -12,7 +13,6 @@ import { statusWithSpinner } from './status.js'
 /** @typedef {import('../bmad-scripts.js').StatusReport} StatusReport */
 /** @typedef {import('../cli.js').CliOptions} CliOptions */
 /** @typedef {import('../installed.js').InstalledState} InstalledState */
-/** @typedef {import('../modules.js').ModuleChoice} ModuleChoice */
 /** @typedef {import('../skills-cli.js').AddResult} AddResult */
 /** @typedef {import('./install.js').CommandDeps} CommandDeps */
 /** @typedef {import('./install-plan.js').InstallCall} InstallCall */
@@ -25,16 +25,6 @@ async function isDirectory(path) {
   } catch {
     return false
   }
-}
-
-/**
- * @param {string | undefined} value
- * @returns {string[] | null}
- */
-export function parseTools(value) {
-  if (!value) return null
-  const ids = value.split(',').map((id) => id.trim()).filter(Boolean)
-  return ids.length > 0 ? ids : null
 }
 
 /**
@@ -98,7 +88,7 @@ function foundModulesText(deps, codes, versions) {
  * @returns {Promise<Existing>}
  */
 export async function readExisting(directory, deps) {
-  const { messages, prompts, skillsCli } = deps
+  const { messages, modules, prompts, skillsCli } = deps
   const state = await inspectInstall(directory, skillsCli)
   /** @type {StatusReport | null} */
   let report = null
@@ -109,7 +99,7 @@ export async function readExisting(directory, deps) {
       report = null
     }
   }
-  const codes = report ? report.modules.map((entry) => entry.module) : state.moduleCodes
+  const codes = report ? report.modules.map((entry) => entry.module) : installedModuleCodes(state, modules)
   const versions = versionsByCode(report)
 
   if (state.legacyManifest) prompts.say(message(messages, 'legacyManifest'))
@@ -121,81 +111,57 @@ export async function readExisting(directory, deps) {
  * @param {CliOptions} options
  * @param {CommandDeps} deps
  * @param {Existing} existing
- * @returns {Promise<ModuleChoice[]>}
+ * @returns {Promise<string[]>}
  */
 export async function pickChoices(options, deps, existing) {
   const { messages, modules, prompts } = deps
   if (options.modules) return parseModulesFlag(options.modules, modules)
-  if (options.yes) return defaultChoices(modules)
-
-  const installedSkills = existing.state.skills.map((skill) => skill.name)
-  const codes = await prompts.chooseModules(messages, modules, {
+  if (options.yes) return defaultCodes(modules)
+  return prompts.chooseModules(messages, modules, {
     installedCodes: existing.codes,
     installedVersions: existing.versions,
   })
-  /** @type {ModuleChoice[]} */
-  const choices = []
-  for (const code of codes) {
-    const module = findModule(modules, code)
-    if (!module) continue
-    const bundles = module.bundles ? await prompts.chooseBundles(messages, module, { installedSkills }) : null
-    choices.push({ code: module.code, bundles })
-  }
-  return choices
+}
+
+/**
+ * `--tools` wins. Without it, `--yes` takes the agents found on this machine, or the shared
+ * `.agents/skills` folder when none is found. Otherwise the picker preselects the agents already
+ * holding BMad here, then the last pick in the skills CLI, then the agents found on this machine.
+ * Agents that read `.agents/skills` are one choice throughout.
+ * @param {CliOptions} options
+ * @param {CommandDeps} deps
+ * @param {string} directory
+ * @param {boolean} interactive
+ * @returns {Promise<string[]>}
+ */
+export async function chooseAgents(options, deps, directory, interactive) {
+  const { agents, messages, prompts } = deps
+  if (options.tools) return parseToolsFlag(options.tools, agents)
+  const context = (deps.detect ?? detectContext)(directory)
+  const found = detectAgents(agents, context)
+  const detected = collapseUniversal(found, agents)
+  if (!interactive) return detected.length > 0 ? detected : [UNIVERSAL_AGENT]
+
+  const known = new Set(agents.map((agent) => agent.id))
+  const holding = agentsHolding(agents, BMAD_SKILL, context)
+  const last = collapseUniversal((await lastPickedAgents(deps.env)).filter((id) => known.has(id)), agents)
+  const initial = holding.length > 0 ? holding : last.length > 0 ? last : detected
+  return prompts.chooseAgents(messages, agents, { initial, detected, found })
 }
 
 /**
  * @param {InstallCall} call
- * @param {string[] | null} agents
+ * @param {string[]} agents
  * @param {string} directory
  * @param {CommandDeps} deps
  * @returns {Promise<AddResult[]>}
  */
-export async function headlessAdd(call, agents, directory, deps) {
+export async function add(call, agents, directory, deps) {
   const spinner = deps.prompts.startSpinner(message(deps.messages, 'installingSpinner', { what: call.label }))
   try {
     const results = await deps.skillsCli.add({ source: call.source, skills: call.skills, agents, cwd: directory })
     return results.filter((entry) => entry.status !== 'installed')
   } finally {
     spinner.stop()
-  }
-}
-
-/**
- * Runs the add calls of one install. When `pick` is set, the first call hands the terminal to the
- * skills CLI so its own agent picker runs; no spinner runs across it, and the picked agent ids come
- * back through the CLI's lock file for every call after it.
- * @param {{ directory: string, deps: CommandDeps, agents: string[] | null, pick: boolean }} context
- */
-export function createAdds(context) {
-  const { directory, deps } = context
-  const { env, messages, prompts, skillsCli } = deps
-  let agents = context.agents
-  let pickPending = context.pick
-
-  /** @param {InstallCall} call @returns {Promise<boolean>} */
-  async function addInteractively(call) {
-    prompts.showNote(message(messages, 'beforeSkillsPicker'))
-    const lockPath = skillsLockPath(env)
-    const before = await snapshotLock(lockPath)
-    await skillsCli.addInteractive({ source: call.source, skills: call.skills, cwd: directory })
-    agents = await pickedAgents(lockPath, before)
-    const landed = hasSkills(await inspectInstall(directory, skillsCli), call.skills)
-    if (!landed) prompts.fail(message(messages, 'firstInstallNotInProject', { directory }))
-    return landed
-  }
-
-  return {
-    /** @returns {string[] | null} */
-    agents: () => agents,
-    /**
-     * @param {InstallCall} call
-     * @returns {Promise<{ landed: boolean, failures: AddResult[] }>}
-     */
-    async run(call) {
-      if (!pickPending) return { landed: true, failures: await headlessAdd(call, agents, directory, deps) }
-      pickPending = false
-      return { landed: await addInteractively(call), failures: [] }
-    },
   }
 }

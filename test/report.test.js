@@ -23,7 +23,6 @@ const messages = {
   reportUnmet: '{skill} needs {requires} {minimum} ({state}): {install}',
   reportPendingQuestions: 'Pending questions: {count}',
   reportProblem: 'Problem: {message}',
-  reportLegacy: 'Left over: {path}',
   reportFailure: 'Failed: {skill} ({error})',
   migrationsAvailable: 'Migrations are available.',
   migrationLine: '{title} - {module} {from} to {to}',
@@ -44,7 +43,7 @@ test('renderStatus lists the title, the next step and every module', () => {
   assert.equal(lines[2], 'core-tools 6.13.0-next - 1 skills installed')
   assert.ok(lines[3].startsWith('Also available for core-tools: bmad-advanced-elicitation,'))
   assert.equal(lines[4], 'method 6.13.0-next - 0 skills installed')
-  assert.ok(lines[5].includes('bmad-prd'))
+  assert.ok(lines[5].includes('bmad-agent-pm'))
   assert.equal(lines.length, 6)
 })
 
@@ -121,7 +120,6 @@ test('renderStatus lists problems, unmet needs, questions, leftovers and failure
     { module: 'method', key: 'user_name', prompt: 'Your name?', default: null, scope: 'project' },
   ]
   report.problems = [{ kind: 'duplicate', message: 'two copies of bmad' }]
-  report.legacy_leftovers = ['_bmad/_config/manifest.yaml']
 
   const text = renderStatus(report, {
     messages,
@@ -137,7 +135,6 @@ test('renderStatus lists problems, unmet needs, questions, leftovers and failure
   assert.ok(text.includes('bmad-build needs bmad-review 6.13.0 (missing): '))
   assert.ok(text.includes('Pending questions: 1'))
   assert.ok(text.includes('Problem: two copies of bmad'))
-  assert.ok(text.includes('Left over: _bmad/_config/manifest.yaml'))
   assert.ok(text.includes('Failed: bmad-spec (network)'))
   assert.ok(text.includes('Failed: bmod-nope (No matching skill found in source)'))
   assert.ok(text.includes('Failed:  (whole run failed)'))

@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { UsageError, helpText, main, parseCli } from '../src/cli.js'
+import { UsageError, helpText, main, parseCli, toolsText } from '../src/cli.js'
+import { loadAgents } from '../src/agents.js'
 import { loadMessages } from '../src/messages.js'
 import { version } from '../src/version.js'
 
@@ -51,7 +52,7 @@ test('every flag is read, long and short', () => {
   const long = run([
     'install',
     '--directory', '/tmp/p',
-    '--modules', 'method:planning+build,cis',
+    '--modules', 'method,cis',
     '--tools', 'claude-code,codex',
     '--yes',
     '--no-telemetry',
@@ -61,7 +62,7 @@ test('every flag is read, long and short', () => {
   assert.deepEqual(long, {
     command: 'install',
     directory: '/tmp/p',
-    modules: 'method:planning+build,cis',
+    modules: 'method,cis',
     tools: 'claude-code,codex',
     yes: true,
     telemetry: false,
@@ -112,7 +113,7 @@ test('every dropped 6.12 flag explains itself', () => {
   const flags = [
     'custom-source', 'set', 'list-options', 'user-name', 'communication-language',
     'document-output-language', 'output-folder', 'channel', 'all-stable', 'all-next',
-    'next', 'pin', 'shims', 'no-shims', 'list-tools',
+    'next', 'pin', 'shims', 'no-shims',
   ]
   for (const flag of flags) {
     const text = dropped([`--${flag}`])
@@ -141,7 +142,7 @@ test('help and version win over a command', () => {
 
 test('helpText lists every command and flag on one line each', () => {
   const text = helpText()
-  for (const name of ['install', 'update', 'status', '--directory', '--modules', '--tools', '--yes',
+  for (const name of ['install', 'update', 'status', '--directory', '--modules', '--tools', '--list-tools', '--yes',
     '--action', '--no-telemetry', '--copy', '--debug', '--help', '--version']) {
     assert.ok(text.includes(name), `missing ${name}`)
   }
@@ -169,9 +170,25 @@ test('main writes dropped flags to stderr and exits 2', async () => {
   assert.equal(out.length, 0)
 })
 
+test('main rejects an unknown --tools id before it prints anything else', async () => {
+  const { io, out, err } = fakeIo()
+  assert.equal(await main(['-y', '-t', 'claude-code,nope'], io), 2)
+  assert.equal(err.join(''), `${messages.unknownTools.replace('{ids}', 'nope')}\n`)
+  assert.equal(out.length, 0)
+})
+
 test('main writes a usage error with a help hint and exits 2', async () => {
   const { io, err } = fakeIo()
   assert.equal(await main(['--bogus'], io), 2)
   assert.ok(err.join('').includes('unknown flag --bogus'))
   assert.ok(err.join('').includes('--help'))
+})
+
+test('--list-tools prints one line per agent with its id and skills folder', async () => {
+  assert.deepEqual(parseCli(['--list-tools'], messages), { kind: 'listTools' })
+  const agents = await loadAgents()
+  const lines = toolsText(agents).split('\n')
+  assert.equal(lines.length, agents.length)
+  const claude = lines.find((line) => line.startsWith('claude-code '))
+  assert.ok(claude?.includes('Claude Code') && claude.endsWith('.claude/skills'))
 })

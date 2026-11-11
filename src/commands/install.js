@@ -5,15 +5,15 @@ import { renderClosing, renderFailures, renderMigrations, renderModuleMessages, 
 import {
   chosenModules,
   memberCalls,
-  orderedChoices,
   recordCalls,
+  repeatCommand,
   selectMigrations,
   versionsByCode,
 } from './install-plan.js'
 import {
+  add,
   announceUpdate,
-  createAdds,
-  parseTools,
+  chooseAgents,
   pickChoices,
   readExisting,
   resolveDirectory,
@@ -27,13 +27,15 @@ import { update } from './update.js'
 /** @typedef {import('../skills-cli.js').AddResult} AddResult */
 
 /**
- * `terminal` and `agent` stand in for the live TTY and coding-agent checks in tests.
+ * `terminal`, `agent` and `detect` stand in for the live TTY, coding-agent and file system checks in tests.
  * @typedef {{
  *   runner: Runner,
  *   skillsCli: ReturnType<typeof import('../skills-cli.js').createSkillsCli>,
  *   bmadScripts: ReturnType<typeof import('../bmad-scripts.js').createBmadScripts>,
  *   messages: Record<string, any>,
  *   modules: ModuleDefinition[],
+ *   agents: import('../agents.js').Agent[],
+ *   detect?: (project: string) => import('../agents.js').DetectContext,
  *   prompts: typeof import('../prompts.js'),
  *   env: NodeJS.ProcessEnv,
  *   cwd: string,
@@ -72,22 +74,20 @@ export async function install(options, deps) {
     return update({ ...options, directory }, deps)
   }
 
-  const choices = orderedChoices(await pickChoices(options, deps, existing), modules)
-  const chosen = chosenModules(choices, modules)
+  const chosen = chosenModules(await pickChoices(options, deps, existing), modules)
   for (const module of chosen) {
     if (module.deprecated) {
       prompts.warn(message(messages, 'deprecatedModule', { module: module.name, reason: module.deprecated }))
     }
   }
 
+  const agents = await chooseAgents(options, deps, directory, interactive)
+
   /** @type {AddResult[]} */
   const failures = []
-  const adds = createAdds({ directory, deps, agents: parseTools(options.tools), pick: interactive && !options.tools })
   const installedSkills = existing.state.skills.map((skill) => skill.name)
   for (const call of recordCalls(chosen, BMAD_SKILL, installedSkills)) {
-    const result = await adds.run(call)
-    if (!result.landed) return 1
-    failures.push(...result.failures)
+    failures.push(...(await add(call, agents, directory, deps)))
   }
 
   const { bmadSkillDir } = await inspectInstall(directory, deps.skillsCli)
@@ -99,14 +99,8 @@ export async function install(options, deps) {
   }
 
   const afterRecords = await statusWithSpinner(deps, bmadSkillDir, directory)
-  const members = memberCalls(choices, modules, afterRecords)
-  for (const entry of members.unknown) {
-    prompts.warn(message(messages, 'bundleSkillUnknown', { module: entry.module, skills: entry.skills.join(', ') }))
-  }
-  for (const call of members.calls) {
-    const result = await adds.run(call)
-    if (!result.landed) return 1
-    failures.push(...result.failures)
+  for (const call of memberCalls(chosen, afterRecords)) {
+    failures.push(...(await add(call, agents, directory, deps)))
   }
 
   const report = await statusWithSpinner(deps, bmadSkillDir, directory)
@@ -121,6 +115,7 @@ export async function install(options, deps) {
   prompts.showNote(renderStatus(report, { failures, messages, modules }))
   const moduleText = renderModuleMessages(chosen)
   if (moduleText) prompts.showNote(moduleText)
+  prompts.showNote(message(messages, 'repeatInstall', { command: repeatCommand(chosen, agents) }))
   prompts.showNote(renderClosing(messages, { directory }))
   prompts.finish('')
 

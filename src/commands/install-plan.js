@@ -1,12 +1,10 @@
-import { bundleCodes, findModule, groupBySource, skillsToInstall } from '../modules.js'
+import { groupBySource } from '../modules.js'
 import { versionMajor } from '../report.js'
 
 /** @typedef {import('../bmad-scripts.js').Migration} Migration */
 /** @typedef {import('../bmad-scripts.js').StatusReport} StatusReport */
-/** @typedef {import('../modules.js').ModuleChoice} ModuleChoice */
 /** @typedef {import('../modules.js').ModuleDefinition} ModuleDefinition */
 /** @typedef {{ source: string, skills: string[], label: string }} InstallCall */
-/** @typedef {{ module: string, skills: string[] }} UnknownSkills */
 
 /**
  * @param {string} source
@@ -14,43 +12,18 @@ import { versionMajor } from '../report.js'
  * @returns {string}
  */
 function callLabel(source, modules) {
-  return modules.length === 1 ? modules[0].name : source
+  return modules.map((module) => module.name).join(', ') || source
 }
 
 /**
- * Puts the picked modules in modules.yaml order and adds the `always` ones, which neither
+ * Resolves the picked codes in modules.yaml order and adds the `always` modules, which neither
  * the flag nor the prompt ever contributes.
- * @param {ModuleChoice[]} choices
- * @param {ModuleDefinition[]} modules
- * @returns {ModuleChoice[]}
- */
-export function orderedChoices(choices, modules) {
-  const picked = new Map(choices.map((choice) => [choice.code, choice]))
-  /** @type {ModuleChoice[]} */
-  const ordered = []
-  for (const module of modules) {
-    const choice = picked.get(module.code)
-    if (choice) ordered.push(choice)
-    else if (module.always) {
-      ordered.push({
-        code: module.code,
-        bundles: module.bundles ? bundleCodes(module, (bundle) => bundle.default === true) : null,
-      })
-    }
-  }
-  return ordered
-}
-
-/**
- * @param {ModuleChoice[]} choices
+ * @param {string[]} codes
  * @param {ModuleDefinition[]} modules
  * @returns {ModuleDefinition[]}
  */
-export function chosenModules(choices, modules) {
-  return choices.flatMap((choice) => {
-    const module = findModule(modules, choice.code)
-    return module ? [module] : []
-  })
+export function chosenModules(codes, modules) {
+  return modules.filter((module) => module.always || codes.includes(module.code))
 }
 
 /**
@@ -75,38 +48,40 @@ export function recordCalls(chosen, firstSkill, installed = []) {
 }
 
 /**
- * @param {ModuleChoice[]} choices
- * @param {ModuleDefinition[]} modules
+ * Every skill a chosen module's record lists that is not installed yet.
+ * @param {ModuleDefinition[]} chosen
  * @param {StatusReport} report
- * @returns {{ calls: InstallCall[], unknown: UnknownSkills[] }}
+ * @returns {InstallCall[]}
  */
-export function memberCalls(choices, modules, report) {
+export function memberCalls(chosen, report) {
   const entries = new Map(report.modules.map((entry) => [entry.module, entry]))
   /** @type {Map<string, { skills: string[], modules: ModuleDefinition[] }>} */
   const bySource = new Map()
-  /** @type {UnknownSkills[]} */
-  const unknown = []
-
-  for (const choice of choices) {
-    const module = findModule(modules, choice.code)
-    const entry = module && entries.get(module.code)
-    if (!module || !entry) continue
-    const wanted = skillsToInstall(module, choice.bundles, [...entry.skills, ...entry.absent_skills])
-    if (wanted.unknown.length > 0) unknown.push({ module: module.name, skills: wanted.unknown })
-    const missing = wanted.install.filter((skill) => entry.absent_skills.includes(skill))
-    if (missing.length === 0) continue
+  for (const module of chosen) {
+    const entry = entries.get(module.code)
+    if (!entry || entry.absent_skills.length === 0) continue
     const group = bySource.get(module.source) ?? { skills: [], modules: [] }
-    for (const skill of missing) if (!group.skills.includes(skill)) group.skills.push(skill)
+    for (const skill of entry.absent_skills) if (!group.skills.includes(skill)) group.skills.push(skill)
     group.modules.push(module)
     bySource.set(module.source, group)
   }
-
-  const calls = [...bySource].map(([source, group]) => ({
+  return [...bySource].map(([source, group]) => ({
     source,
     skills: group.skills,
     label: callLabel(source, group.modules),
   }))
-  return { calls, unknown }
+}
+
+/**
+ * The command that repeats this install without prompts.
+ * @param {ModuleDefinition[]} chosen
+ * @param {string[]} agents
+ * @returns {string}
+ */
+export function repeatCommand(chosen, agents) {
+  const picked = chosen.filter((module) => !module.always)
+  const codes = (picked.length > 0 ? picked : chosen).map((module) => module.code)
+  return `npx bmad-method install -m ${codes.join(',')} -t ${agents.join(',')} -y`
 }
 
 /**

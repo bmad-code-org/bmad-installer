@@ -32,11 +32,15 @@ const keysWithValues = {
   installedSuffix: { version: '6.13.0-next' },
   installedSuffixNoVersion: {},
   modulesPrompt: {},
-  bundlesPrompt: { module: 'BMad Method' },
   deprecatedModule: { module: 'BMad Method', reason: 'Replaced by another module.' },
-  beforeSkillsPicker: {},
+  agentsPrompt: {},
+  agentsPlaceholder: {},
+  agentFoundHint: { dir: '.claude/skills' },
+  unknownTools: { ids: 'nope' },
   firstInstallNotInProject: { directory: '/tmp/project' },
-  bundleSkillUnknown: { module: 'BMad Method', skills: 'bmad-old, bmad-older' },
+  repeatInstall: { command: 'npx bmad-method install -m method -t universal,claude-code -y' },
+  universalLabel: {},
+  universalHint: { names: 'Codex, Cursor', count: 18 },
   installingSpinner: { what: 'BMad Method' },
   statusSpinner: {},
   nothingToUpdate: {},
@@ -59,7 +63,6 @@ const keysWithValues = {
   },
   reportPendingQuestions: { count: 3 },
   reportProblem: { message: 'Two records claim the same module.' },
-  reportLegacy: { path: '_bmad/_config/manifest.yaml' },
   reportFailure: { skill: 'bmad-prd', error: 'No matching skill found in source' },
   closing: { directory: '/tmp/project' },
   cancelled: {},
@@ -81,7 +84,6 @@ const droppedFlagNames = [
   'pin',
   'shims',
   'no-shims',
-  'list-tools',
 ]
 
 const uvPlatforms = ['darwin', 'linux', 'win32']
@@ -128,7 +130,7 @@ test('closing names every route the user needs', () => {
 test('the prose blocks fit the clack note box without rewrapping', () => {
   const blocks = [
     'intro', 'updateAvailable', 'nodeTooOld', 'nodeBelowSkillsFloor', 'uvMissing', 'wslWindowsNode',
-    'needsTerminal', 'insideAgent', 'legacyManifest', 'beforeSkillsPicker', 'firstInstallNotInProject',
+    'needsTerminal', 'insideAgent', 'legacyManifest', 'firstInstallNotInProject', 'unknownTools', 'repeatInstall',
     'nothingInstalled', 'nothingToUpdate', 'cancelled', 'closing', 'droppedUninstall',
   ]
   for (const key of blocks) {

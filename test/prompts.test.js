@@ -2,7 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { loadMessages } from '../src/messages.js'
 import { loadModules } from '../src/modules.js'
-import { bundlePicker, modulePicker } from '../src/prompts.js'
+import { loadAgents } from '../src/agents.js'
+import { agentPicker, modulePicker } from '../src/prompts.js'
 
 /** @typedef {import('../src/modules.js').ModuleDefinition} ModuleDefinition */
 
@@ -49,22 +50,21 @@ test('an installed module with no known version gets the plain suffix', () => {
   assert.deepEqual(picker.initialValues, ['method'])
 })
 
-test('the bundle picker offers every bundle and ticks the default ones', () => {
-  const picker = bundlePicker(method, { installedSkills: [] })
-  assert.deepEqual(picker.options.map((option) => option.value), ['planning', 'build', 'agents'])
-  assert.deepEqual(picker.initialValues, ['planning', 'build', 'agents'])
-})
+test('the agent picker shows the shared folder as one entry and the own-folder agents after it', async () => {
+  const agents = await loadAgents()
+  const picker = agentPicker(messages, agents, { initial: ['claude-code'], detected: ['universal', 'claude-code', 'augment'], found: ['cursor', 'claude-code', 'augment'] })
+  const values = picker.options.map((option) => option.value)
 
-test('a bundle whose skills are all installed is ticked even when it is not a default', () => {
-  const extra = { code: 'extra', name: 'Extra', description: 'Not a default', skills: ['bmad-walkthrough'] }
-  const withExtra = { ...method, bundles: [...(method.bundles ?? []), extra] }
-  const picker = bundlePicker(withExtra, { installedSkills: extra.skills })
-  assert.deepEqual(picker.initialValues, ['planning', 'build', 'agents', 'extra'])
+  assert.deepEqual(values.slice(0, 3), ['claude-code', 'universal', 'augment'])
+  assert.equal(values.includes('codex'), false)
+  assert.equal(values.length, agents.filter((agent) => agent.skillsDir !== '.agents/skills').length + 1)
+  assert.deepEqual(picker.initialValues, ['claude-code'])
 
-  const none = bundlePicker(withExtra, { installedSkills: [] })
-  assert.equal(none.initialValues.includes('extra'), false)
-})
-
-test('a module without bundles offers nothing', () => {
-  assert.deepEqual(bundlePicker(must('cis'), { installedSkills: [] }), { options: [], initialValues: [] })
+  const shared = picker.options[1]
+  assert.equal(shared.label, messages.universalLabel)
+  assert.ok(shared.hint.startsWith('Cursor, '), shared.hint)
+  assert.ok(/ and \d+ more$/.test(shared.hint), shared.hint)
+  assert.equal(picker.options[0].hint, '.claude/skills, found on this machine')
+  assert.ok(picker.searchText.universal.includes('codex'))
+  assert.ok(picker.searchText['claude-code'].includes('claude code'))
 })

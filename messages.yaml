@@ -72,24 +72,25 @@ installedSuffixNoVersion: "(installed)"
 
 modulesPrompt: "Which modules do you want?"
 
-bundlesPrompt: "Which parts of {module} do you want?"
-
 deprecatedModule: "{module} is deprecated. {reason}"
 
-beforeSkillsPicker: |-
-  The skills CLI takes over for the first install.
-  Pick the coding agents to install to.
-  If it asks for a scope, keep Project.
-  If it asks for a method, keep Symlink.
-  Confirm, and this installer picks up again when it is done.
+agentsPrompt: "Which coding agents should get the skills?"
+
+agentsPlaceholder: "Type to filter"
+
+agentFoundHint: "{dir}, found on this machine"
+
+universalLabel: "Shared .agents/skills folder"
+
+universalHint: "{names} and {count} more"
+
+unknownTools: |-
+  Unknown coding agent: {ids}
+  List the ids with: npx bmad-method --list-tools
 
 firstInstallNotInProject: |-
-  The skills CLI did not install into {directory}.
-  Nothing was added to this project.
-  If you picked Global scope, the skills went to the global skills dir.
-  Run the installer again and keep the Project scope.
-
-bundleSkillUnknown: "Skipped skills that {module} no longer lists: {skills}"
+  The skills CLI did not install bmad into {directory}.
+  Run the installer again with --debug to see what it did.
 
 installingSpinner: "Installing {what}"
 
@@ -123,9 +124,11 @@ reportPendingQuestions: "{count} setup questions are still unanswered."
 
 reportProblem: "Problem: {message}"
 
-reportLegacy: "Left over from an older install: {path}"
-
 reportFailure: "Failed to install {skill}: {error}"
+
+repeatInstall: |-
+  To repeat this install without prompts:
+  {command}
 
 closing: |-
   BMad is installed in:
@@ -142,10 +145,6 @@ closing: |-
     npx skills update
 
   npx skills remove removes skills. This installer never removes anything.
-
-  Going direct with the skills CLI: a module is its bmod-<code> record
-  skill plus the skills it requires.
-  A partial install is one the bmad skill cannot see or run.
 
   After adding or updating any skill by any route,
   ask the bmad skill to update. Only it reconciles what is installed.
@@ -167,7 +166,6 @@ droppedFlags:
   pin: "--pin is gone. Modules install from each repo's main branch."
   shims: "--shims is gone. Shims are no longer shipped."
   no-shims: "--no-shims is gone. Shims are no longer shipped."
-  list-tools: "--list-tools is gone. Tool ids are the skills CLI --agent ids; a wrong one lists the valid ones."
 
 droppedUninstall: |-
   This installer does not remove anything.

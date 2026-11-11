@@ -28,7 +28,6 @@ import { dirname, join } from 'node:path'
  *   unmet_requirements: UnmetEntry[],
  *   unmet_recommendations: UnmetEntry[],
  *   problems: Problem[],
- *   legacy_leftovers: string[],
  *   current: boolean,
  *   next: string | null
  * }} StatusReport

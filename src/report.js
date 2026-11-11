@@ -61,10 +61,6 @@ export function renderStatus(report, options) {
     lines.push(message(messages, 'reportProblem', { message: problem.message }))
   }
 
-  for (const leftover of report.legacy_leftovers) {
-    lines.push(message(messages, 'reportLegacy', { path: leftover }))
-  }
-
   if (failures.length > 0) lines.push(renderFailures(failures, messages))
 
   return lines.join('\n')

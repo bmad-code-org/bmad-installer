@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { loadAgents } from '../../src/agents.js'
 import { loadMessages } from '../../src/messages.js'
 import { loadModules } from '../../src/modules.js'
 
@@ -14,6 +15,18 @@ import { loadModules } from '../../src/modules.js'
 
 export const messages = await loadMessages()
 export const modules = await loadModules()
+export const agents = await loadAgents()
+export const HOME = '/home/user'
+
+/**
+ * A file system where only `paths` exist, for agent detection.
+ * @param {string[]} [paths]
+ * @returns {(project: string) => import('../../src/agents.js').DetectContext}
+ */
+export function detectWith(paths = []) {
+  const existing = new Set(paths)
+  return (project) => ({ home: HOME, project, exists: (path) => existing.has(path) })
+}
 export const RECORDS = ['bmad', 'bmod-core-tools', 'bmod-method']
 
 const fresh = JSON.parse(await readFile(new URL('../fixtures/status-fresh.json', import.meta.url), 'utf8'))
@@ -34,6 +47,8 @@ export function fakePrompts(answers = {}) {
   const said = { notes: [], says: [], warns: [], fails: [], finish: [] }
   /** @type {string[]} */
   const asked = []
+  /** @type {{ initial: string[], detected: string[], found: string[] }[]} */
+  const pickers = []
   const prompts = /** @type {any} */ ({
     showIntro: () => asked.push('intro'),
     showNote: (/** @type {string} */ t) => said.notes.push(t),
@@ -45,17 +60,20 @@ export function fakePrompts(answers = {}) {
     askDirectory: async (/** @type {any} */ _m, /** @type {string} */ d) => (asked.push('directory'), d),
     confirm: async () => (asked.push('confirm'), answers.confirm ?? true),
     chooseModules: async () => (asked.push('modules'), answers.modules ?? ['method']),
-    chooseBundles: async () => (asked.push('bundles'), answers.bundles ?? ['planning']),
+    chooseAgents: async (/** @type {any} */ _m, /** @type {any} */ _a, /** @type {{ initial: string[], detected: string[], found: string[] }} */ picker) => {
+      asked.push('agents')
+      pickers.push(picker)
+      return answers.agents ?? picker.initial
+    },
     chooseExistingAction: async () => (asked.push('existing'), answers.existing ?? 'modify'),
   })
-  return { prompts, said, asked }
+  return { prompts, said, asked, pickers }
 }
 
 /**
  * @param {{
  *   lists: ListedSkill[][],
  *   add?: (request: any) => AddResult[],
- *   onInteractive?: () => Promise<void>,
  *   updateCode?: number
  * }} script
  */
@@ -64,11 +82,6 @@ export function fakeSkillsCli(script) {
   const requests = []
   let listIndex = 0
   const cli = /** @type {any} */ ({
-    async addInteractive(/** @type {any} */ request) {
-      requests.push({ kind: 'interactive', ...request })
-      await script.onInteractive?.()
-      return { code: 0 }
-    },
     async add(/** @type {any} */ request) {
       requests.push({ kind: 'add', ...request })
       if (script.add) return script.add(request)
@@ -121,7 +134,7 @@ export function fakeRunner(script = {}) {
 }
 
 /**
- * @param {{ prompts: any, skillsCli: any, bmadScripts: any, cwd?: string, env?: NodeJS.ProcessEnv, runner?: Runner }} parts
+ * @param {{ prompts: any, skillsCli: any, bmadScripts: any, cwd?: string, env?: NodeJS.ProcessEnv, runner?: Runner, detect?: ReturnType<typeof detectWith> }} parts
  * @returns {CommandDeps}
  */
 export function makeDeps(parts) {
@@ -131,6 +144,8 @@ export function makeDeps(parts) {
     bmadScripts: parts.bmadScripts,
     messages,
     modules,
+    agents,
+    detect: parts.detect ?? detectWith(),
     prompts: parts.prompts,
     env: parts.env ?? {},
     cwd: parts.cwd ?? '/project',
