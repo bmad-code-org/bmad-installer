@@ -43,7 +43,7 @@ test('--yes with no agent found installs to the universal folder only', async (t
 
   assert.equal(code, 0)
   assert.deepEqual(asked, ['intro'])
-  assert.equal(only(requests).length, 2)
+  assert.equal(only(requests).length, 3)
   for (const request of only(requests)) assert.deepEqual(request.agents, ['universal'])
 })
 

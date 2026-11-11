@@ -9,7 +9,6 @@ import {
   findModule,
   parseModulesFlag,
   defaultCodes,
-  groupBySource,
 } from '../src/modules.js'
 
 /** @type {string[]} */
@@ -43,13 +42,14 @@ after(async () => {
 
 test('loads and validates the real modules.yaml', async () => {
   const modules = await loadModules()
-  assert.deepEqual(modules.map((module) => module.code), ['core-tools', 'method', 'cis'])
+  assert.deepEqual(modules.map((module) => module.code), ['core-tools', 'method', 'toolsmith', 'founder', 'cis'])
   assert.equal(must(modules, 'core-tools').always, true)
   const method = must(modules, 'method')
   assert.deepEqual(method.aliases, ['bmm'])
   assert.equal(method.default, true)
   assert.equal(method.record, 'bmod-method')
-  assert.equal(method.source, 'bmad-code-org/BMAD-METHOD')
+  assert.equal(method.source, 'bmad-code-org/BMAD-METHOD/skills/method')
+  assert.equal(must(modules, 'founder').record, 'bmad-founder-agent-advisor')
   assert.ok(method.message && method.message.length > 0)
 })
 
@@ -89,17 +89,6 @@ modules:
 `
 
 test('defaultCodes takes the default modules', async () => {
-  assert.deepEqual(defaultCodes(await loadModules()), ['method'])
+  assert.deepEqual(defaultCodes(await loadModules()), ['method', 'toolsmith'])
   assert.deepEqual(defaultCodes(await loadModules(await writeModulesFile(ONE_DEFAULT_MODULE))), ['two'])
-})
-
-test('groupBySource keeps modules.yaml order', async () => {
-  const modules = await loadModules()
-  const groups = groupBySource(modules)
-  assert.deepEqual([...groups.keys()], [
-    'bmad-code-org/BMAD-METHOD',
-    'bmad-code-org/bmad-module-creative-intelligence-suite',
-  ])
-  assert.deepEqual(groups.get('bmad-code-org/BMAD-METHOD')?.map((module) => module.code), ['core-tools', 'method'])
-  assert.deepEqual(groups.get('bmad-code-org/bmad-module-creative-intelligence-suite')?.map((module) => module.code), ['cis'])
 })

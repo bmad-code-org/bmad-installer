@@ -3,8 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import {
   chosenModules,
-  memberCalls,
-  recordCalls,
+  moduleCalls,
   repeatCommand,
   selectMigrations,
   versionsByCode,
@@ -28,73 +27,23 @@ test('chosenModules adds the always modules, follows modules.yaml order and drop
   assert.deepEqual(codes([]), ['core-tools'])
 })
 
-test('recordCalls puts bmad in the first source call and one call per source', () => {
-  const chosen = chosenModules(['method', 'cis'], modules)
-  const calls = recordCalls(chosen, 'bmad')
-
-  assert.equal(calls.length, 2)
-  assert.deepEqual(calls[0], {
-    source: 'bmad-code-org/BMAD-METHOD',
-    skills: ['bmad', 'bmod-core-tools', 'bmod-method'],
-    label: 'BMad Core Tools, BMad Method',
-  })
-  assert.deepEqual(calls[1], {
-    source: 'bmad-code-org/bmad-module-creative-intelligence-suite',
-    skills: ['bmod-cis'],
-    label: 'BMad Creative Intelligence Suite',
-  })
+test('moduleCalls asks for every skill in each chosen module folder, in modules.yaml order', () => {
+  const calls = moduleCalls(chosenModules(['founder', 'method'], modules), null)
+  assert.deepEqual(calls, [
+    { source: 'bmad-code-org/BMAD-METHOD/skills/core-tools', skills: ['*'], label: 'BMad Core Tools' },
+    { source: 'bmad-code-org/BMAD-METHOD/skills/method', skills: ['*'], label: 'BMad Method' },
+    { source: 'bmad-code-org/BMAD-METHOD/skills/founder', skills: ['*'], label: 'BMad Founder' },
+  ])
 })
 
-test('recordCalls leaves out records already in the project and drops empty calls', () => {
-  const chosen = chosenModules(['method', 'cis'], modules)
-
-  const partial = recordCalls(chosen, 'bmad', ['bmad', 'bmod-core-tools'])
-  assert.deepEqual(partial.map((call) => call.skills), [['bmod-method'], ['bmod-cis']])
-
-  const onlyCis = recordCalls(chosen, 'bmad', ['bmad', 'bmod-core-tools', 'bmod-method'])
-  assert.deepEqual(onlyCis.map((call) => call.skills), [['bmod-cis']])
-
-  assert.deepEqual(recordCalls(chosen, 'bmad', ['bmad', 'bmod-core-tools', 'bmod-method', 'bmod-cis']), [])
-})
-
-test('memberCalls takes every absent skill the record lists', () => {
-  const report = statusOf()
-  report.modules[1].skills = ['bmad-agent-pm']
-  report.modules[1].absent_skills = report.modules[1].absent_skills.filter((name) => name !== 'bmad-agent-pm')
-  const calls = memberCalls(chosenModules(['method'], modules), report)
-
-  assert.equal(calls.length, 1)
-  assert.equal(calls[0].label, 'BMad Core Tools, BMad Method')
-  assert.deepEqual(calls[0].skills, [...statusOf().modules[0].absent_skills, ...report.modules[1].absent_skills])
-})
-
-test('memberCalls labels a one-module call with the module name and skips modules with nothing absent', () => {
-  const report = statusOf()
-  report.modules[1].absent_skills = []
-  const calls = memberCalls(chosenModules(['method'], modules), report)
-
-  assert.equal(calls.length, 1)
-  assert.equal(calls[0].label, 'BMad Core Tools')
-  assert.deepEqual(calls[0].skills, statusOf().modules[0].absent_skills)
-})
-
-test('memberCalls ignores a chosen module the status does not know', () => {
-  const report = statusOf()
-  report.modules = []
-  assert.deepEqual(memberCalls(chosenModules(['cis'], modules), report), [])
-})
-
-test('a module of one skill installs in its record call and needs no member call', () => {
-  /** @type {import('../../src/modules.js').ModuleDefinition[]} */
-  const withSolo = [...modules, { code: 'solo', name: 'Solo', description: 'd', source: 'owner/solo', record: 'bmad-solo' }]
-  const chosen = chosenModules(['solo'], withSolo)
-
-  assert.deepEqual(recordCalls(chosen, 'bmad').at(-1), { source: 'owner/solo', skills: ['bmad-solo'], label: 'Solo' })
-
+test('moduleCalls leaves out a module installed with nothing missing and redoes one with gaps', () => {
   const report = statusOf()
   report.modules[0].absent_skills = []
-  report.modules.push({ ...report.modules[1], module: 'solo', folder: 'bmad-solo', skills: ['bmad-solo'], absent_skills: [] })
-  assert.deepEqual(memberCalls(chosen, report), [])
+  const calls = moduleCalls(chosenModules(['method'], modules), report)
+  assert.deepEqual(calls.map((call) => call.label), ['BMad Method'])
+
+  report.modules[1].absent_skills = []
+  assert.deepEqual(moduleCalls(chosenModules(['method'], modules), report), [])
 })
 
 test('versionsByCode maps the status entries and tolerates no status', () => {

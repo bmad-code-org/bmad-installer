@@ -63,7 +63,7 @@ The skills CLI decides. With one agent it copies the skills into that agent's fo
 | `-h, --help` | Show the help |
 | `-v, --version` | Show the version |
 
-`--modules` takes module codes: `method` (alias `bmm`) and `cis`. Each module installs every skill its record lists. The core tools module installs on every run.
+`--modules` takes module codes: `method` (alias `bmm`), `toolsmith`, `founder` and `cis`. Without `--modules`, `--yes` installs `method` and `toolsmith`. The core tools module installs on every run. Each module installs whole, with one `npx skills add <owner/repo/folder> -s '*'` for its folder; a module already installed with nothing missing is skipped.
 
 A 6.12 flag this installer dropped prints one line about it, then exits without installing.
 
@@ -85,7 +85,7 @@ After adding or updating any skill by any route, ask the `bmad` skill to update.
 
 ## Installing with the skills CLI directly
 
-If you install with the skills CLI directly, a module is its record skill plus the skills that record lists. The record is a `bmod-<code>` skill, or, for a module of one skill, that skill itself. A record without its skills, or skills without their record, is a partial install: the `bmad` skill cannot see or run it. `npx bmad-method status` lists missing records and unmet requirements.
+If you install with the skills CLI directly, install a module from its folder: `npx skills add bmad-code-org/BMAD-METHOD/skills/method --skill '*'` installs BMad Method, record included. Core tools (`skills/core-tools`) hold the `bmad` skill, so install them first. A module is its record skill plus the skills that record lists. The record is a `bmod-<code>` skill, or, for a module of one skill, that skill itself. A record without its skills, or skills without their record, is a partial install: the `bmad` skill cannot see or run it. `npx bmad-method status` lists missing records and unmet requirements.
 
 ## Troubleshooting
 
@@ -111,7 +111,7 @@ The skills CLI writes `skills-lock.json` in the project. Commit it. `npx skills 
 
 `npm test` runs the unit tests with `node --test`. `npm run check` runs `tsc` over `bin`, `src` and `test`.
 
-`npm run e2e` runs the end-to-end install. It skips itself unless `BMAD_INSTALLER_E2E_SOURCE` points at a local BMAD-METHOD checkout. The test passes that path to the child run as `BMAD_INSTALLER_SOURCE_OVERRIDE`, which makes module loading replace every module's source with it. Set `BMAD_INSTALLER_E2E_DEBUG` to log every child command. `BMAD_INSTALLER_SOURCE_OVERRIDE` exists for this test; do not set it for a real install.
+`npm run e2e` runs the end-to-end install. It skips itself unless `BMAD_INSTALLER_E2E_SOURCE` points at a local BMAD-METHOD checkout. The test passes that path to the child run as `BMAD_INSTALLER_SOURCE_OVERRIDE`, which swaps the repository of every module from the core tools repository for that path and keeps each module's folder. A `#ref` at the end selects a branch or tag: `BMAD_INSTALLER_SOURCE_OVERRIDE='bmad-code-org/BMAD-METHOD#dev'` installs from `dev` on GitHub. Set `BMAD_INSTALLER_E2E_DEBUG` to log every child command. `BMAD_INSTALLER_SOURCE_OVERRIDE` exists for this test; do not set it for a real install.
 
 ## Releasing
 

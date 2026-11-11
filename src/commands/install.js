@@ -1,11 +1,10 @@
-import { BMAD_SKILL, inspectInstall } from '../installed.js'
+import { inspectInstall } from '../installed.js'
 import { message } from '../messages.js'
 import { runPreflight } from '../preflight.js'
 import { renderClosing, renderFailures, renderMigrations, renderModuleMessages, renderStatus } from '../report.js'
 import {
   chosenModules,
-  memberCalls,
-  recordCalls,
+  moduleCalls,
   repeatCommand,
   selectMigrations,
   versionsByCode,
@@ -85,8 +84,7 @@ export async function install(options, deps) {
 
   /** @type {AddResult[]} */
   const failures = []
-  const installedSkills = existing.state.skills.map((skill) => skill.name)
-  for (const call of recordCalls(chosen, BMAD_SKILL, installedSkills)) {
+  for (const call of moduleCalls(chosen, existing.report)) {
     failures.push(...(await add(call, agents, directory, deps)))
   }
 
@@ -96,11 +94,6 @@ export async function install(options, deps) {
       ? renderFailures(failures, messages)
       : message(messages, 'firstInstallNotInProject', { directory }))
     return 1
-  }
-
-  const afterRecords = await statusWithSpinner(deps, bmadSkillDir, directory)
-  for (const call of memberCalls(chosen, afterRecords)) {
-    failures.push(...(await add(call, agents, directory, deps)))
   }
 
   const report = await statusWithSpinner(deps, bmadSkillDir, directory)

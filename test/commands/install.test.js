@@ -31,10 +31,14 @@ test('--yes takes the default modules and asks nothing', async (t) => {
 
   assert.equal(code, 0)
   assert.deepEqual(asked, ['intro'])
-  const members = only(requests)[1]
-  assert.deepEqual(members.agents, ['universal'])
-  for (const skill of ['bmad-agent-pm', 'bmad-build', 'bmad-agent-po', 'bmad-walkthrough', 'bmad-agent-dev', 'bmad-brainstorming']) {
-    assert.ok(members.skills.includes(skill), `missing ${skill}`)
+  assert.deepEqual(only(requests).map((request) => request.source), [
+    'bmad-code-org/BMAD-METHOD/skills/core-tools',
+    'bmad-code-org/BMAD-METHOD/skills/method',
+    'bmad-code-org/BMAD-METHOD/skills/toolsmith',
+  ])
+  for (const request of only(requests)) {
+    assert.deepEqual(request.skills, ['*'])
+    assert.deepEqual(request.agents, ['universal'])
   }
 })
 
@@ -43,11 +47,9 @@ test('a skipped skill is reported and turns the run into an exit 1', async (t) =
   const { prompts, said } = fakePrompts()
   const { cli } = fakeSkillsCli({
     lists: [[], RECORDS.map(listed)],
-    add: (request) => request.skills.map((/** @type {string} */ name) => (
-      name === 'bmad-agent-pm'
-        ? { name, status: 'skipped', reason: 'No matching skill found in source' }
-        : { name, status: 'installed' }
-    )),
+    add: (request) => request.source.endsWith('/method')
+      ? [{ name: 'bmad-build', status: 'installed' }, { name: 'bmad-agent-pm', status: 'skipped', reason: 'No matching skill found in source' }]
+      : [{ name: 'bmad', status: 'installed' }],
   })
   const { scripts } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
 
@@ -73,7 +75,7 @@ test('the run stops when bmad did not land in the project', async (t) => {
 
   assert.equal(code, 1)
   assert.deepEqual(said.fails, [messages.firstInstallNotInProject.replace('{directory}', dir)])
-  assert.equal(only(requests).length, 1)
+  assert.equal(only(requests).length, 3)
 })
 
 test('a record call that failed is explained', async (t) => {

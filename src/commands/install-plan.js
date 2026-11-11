@@ -1,4 +1,3 @@
-import { groupBySource } from '../modules.js'
 import { versionMajor } from '../report.js'
 
 /** @typedef {import('../bmad-scripts.js').Migration} Migration */
@@ -6,14 +5,7 @@ import { versionMajor } from '../report.js'
 /** @typedef {import('../modules.js').ModuleDefinition} ModuleDefinition */
 /** @typedef {{ source: string, skills: string[], label: string }} InstallCall */
 
-/**
- * @param {string} source
- * @param {ModuleDefinition[]} modules
- * @returns {string}
- */
-function callLabel(source, modules) {
-  return modules.map((module) => module.name).join(', ') || source
-}
+const ALL_SKILLS = '*'
 
 /**
  * Resolves the picked codes in modules.yaml order and adds the `always` modules, which neither
@@ -27,49 +19,20 @@ export function chosenModules(codes, modules) {
 }
 
 /**
- * Records already in the project are left alone; `update` is what refreshes them.
+ * One skills add per module, for every skill in the module's folder. A module already installed
+ * with nothing missing is left alone; `update` is what refreshes it.
  * @param {ModuleDefinition[]} chosen
- * @param {string} firstSkill
- * @param {string[]} installed
+ * @param {StatusReport | null} installed
  * @returns {InstallCall[]}
  */
-export function recordCalls(chosen, firstSkill, installed = []) {
-  /** @type {InstallCall[]} */
-  const calls = []
-  let first = true
-  for (const [source, modules] of groupBySource(chosen)) {
-    const wanted = modules.map((module) => module.record)
-    if (first) wanted.unshift(firstSkill)
-    first = false
-    const skills = wanted.filter((skill) => !installed.includes(skill))
-    if (skills.length > 0) calls.push({ source, skills, label: callLabel(source, modules) })
-  }
-  return calls
-}
-
-/**
- * Every skill a chosen module's record lists that is not installed yet.
- * @param {ModuleDefinition[]} chosen
- * @param {StatusReport} report
- * @returns {InstallCall[]}
- */
-export function memberCalls(chosen, report) {
-  const entries = new Map(report.modules.map((entry) => [entry.module, entry]))
-  /** @type {Map<string, { skills: string[], modules: ModuleDefinition[] }>} */
-  const bySource = new Map()
-  for (const module of chosen) {
-    const entry = entries.get(module.code)
-    if (!entry || entry.absent_skills.length === 0) continue
-    const group = bySource.get(module.source) ?? { skills: [], modules: [] }
-    for (const skill of entry.absent_skills) if (!group.skills.includes(skill)) group.skills.push(skill)
-    group.modules.push(module)
-    bySource.set(module.source, group)
-  }
-  return [...bySource].map(([source, group]) => ({
-    source,
-    skills: group.skills,
-    label: callLabel(source, group.modules),
-  }))
+export function moduleCalls(chosen, installed) {
+  const entries = new Map((installed?.modules ?? []).map((entry) => [entry.module, entry]))
+  return chosen
+    .filter((module) => {
+      const entry = entries.get(module.code)
+      return !entry || entry.absent_skills.length > 0
+    })
+    .map((module) => ({ source: module.source, skills: [ALL_SKILLS], label: module.name }))
 }
 
 /**

@@ -5,7 +5,7 @@ import { packageRoot } from './version.js'
 
 /** @typedef {{ code: string, name: string, description: string, source: string, record: string, aliases?: string[], always?: boolean, default?: boolean, deprecated?: string, message?: string }} ModuleDefinition */
 
-const SOURCE_PATTERN = /^[\w.-]+\/[\w.-]+$/
+const SOURCE_PATTERN = /^[\w.-]+\/[\w.-]+(\/[\w.-]+)*$/
 const SOURCE_OVERRIDE = 'BMAD_INSTALLER_SOURCE_OVERRIDE'
 
 export class ModulesError extends Error {
@@ -40,7 +40,7 @@ function validateModule(entry, index, taken) {
   const where = `module "${code}"`
   const source = requireText(entry.source, where, 'source')
   if (!SOURCE_PATTERN.test(source)) {
-    throw new ModulesError(`${where}: source must look like owner/repo`)
+    throw new ModulesError(`${where}: source must look like owner/repo or owner/repo/path/to/folder`)
   }
   /** @type {ModuleDefinition} */
   const module = {
@@ -77,7 +77,33 @@ export async function loadModules(filePath = join(packageRoot, 'modules.yaml')) 
   const taken = new Set()
   const modules = entries.map((entry, index) => validateModule(entry, index, taken))
   const override = process.env[SOURCE_OVERRIDE]
-  return override ? modules.map((module) => ({ ...module, source: override })) : modules
+  if (!override) return modules
+  const repo = repoOf((modules.find((module) => module.always) ?? modules[0]).source)
+  return modules.map((module) => ({ ...module, source: overrideSource(module.source, override, repo) }))
+}
+
+/**
+ * @param {string} source
+ * @returns {string}
+ */
+export function repoOf(source) {
+  return source.split('/').slice(0, 2).join('/')
+}
+
+/**
+ * Swaps the repository of a module from `repo` for `override` and keeps the module's folder, so a
+ * local checkout or a ref such as `owner/repo#dev` stands in for the published one. A `#ref` in
+ * the override goes after the folder, where the skills CLI reads it.
+ * @param {string} source
+ * @param {string} override
+ * @param {string} repo
+ * @returns {string}
+ */
+export function overrideSource(source, override, repo) {
+  if (repoOf(source) !== repo) return source
+  const [base, ref] = override.split('#')
+  const folder = source.split('/').slice(2).join('/')
+  return `${base.replace(/\/+$/, '')}${folder ? `/${folder}` : ''}${ref ? `#${ref}` : ''}`
 }
 
 /**
@@ -113,19 +139,4 @@ export function parseModulesFlag(value, modules) {
  */
 export function defaultCodes(modules) {
   return modules.filter((module) => module.default === true).map((module) => module.code)
-}
-
-/**
- * @param {ModuleDefinition[]} modules
- * @returns {Map<string, ModuleDefinition[]>}
- */
-export function groupBySource(modules) {
-  /** @type {Map<string, ModuleDefinition[]>} */
-  const groups = new Map()
-  for (const module of modules) {
-    const existing = groups.get(module.source)
-    if (existing) existing.push(module)
-    else groups.set(module.source, [module])
-  }
-  return groups
 }
