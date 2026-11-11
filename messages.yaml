@@ -84,9 +84,6 @@ agentsPlaceholder: "Type to filter"
 
 agentFoundLabel: "{name}, found on this machine"
 
-universalLabel: "Shared .agents/skills folder: {names}"
-
-universalNames: "{names} and {count} more"
 
 unknownModules: |-
   Unknown module: {codes}

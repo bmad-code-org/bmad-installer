@@ -39,8 +39,6 @@ const keysWithValues = {
   unknownTools: { ids: 'nope' },
   firstInstallNotInProject: { directory: '/tmp/project' },
   repeatInstall: { command: 'npx bmad-method install -m method -t universal,claude-code -y' },
-  universalLabel: { names: 'Codex, Cursor and 18 more' },
-  universalNames: { names: 'Codex, Cursor', count: 18 },
   installingSpinner: { what: 'BMad Method' },
   statusSpinner: {},
   nothingToUpdate: {},

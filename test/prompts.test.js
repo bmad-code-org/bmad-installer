@@ -50,22 +50,17 @@ test('an installed module with no known version gets the plain suffix', () => {
   assert.deepEqual(picker.initialValues, ['method'])
 })
 
-test('the agent picker shows the shared folder as one entry and the own-folder agents after it', async () => {
+test('the agent picker lists every agent by name, preselected first, then the found ones', async () => {
   const agents = await loadAgents()
-  const picker = agentPicker(messages, agents, { initial: ['claude-code'], detected: ['universal', 'claude-code', 'augment'], found: ['cursor', 'claude-code', 'augment'] })
+  const picker = agentPicker(messages, agents, { initial: ['augment'], found: ['cursor', 'claude-code'] })
   const values = picker.options.map((option) => option.value)
 
-  assert.deepEqual(values.slice(0, 3), ['claude-code', 'universal', 'augment'])
-  assert.equal(values.includes('codex'), false)
-  assert.equal(values.length, agents.filter((agent) => agent.skillsDir !== '.agents/skills').length + 1)
-  assert.deepEqual(picker.initialValues, ['claude-code'])
-
-  const shared = picker.options[1]
-  assert.ok(/^Shared \.agents\/skills folder: Cursor, \w.* and \d+ more$/.test(shared.label), shared.label)
-  assert.equal(shared.hint, '.agents/skills')
-  assert.equal(picker.options[0].label, 'Claude Code, found on this machine')
-  assert.equal(picker.options[0].hint, '.claude/skills')
-  assert.equal(picker.options.find((option) => option.value === 'aider-desk')?.label, 'AiderDesk')
-  assert.ok(picker.searchText.universal.includes('codex'))
-  assert.ok(picker.searchText['claude-code'].includes('claude code'))
+  assert.deepEqual(values.slice(0, 3), ['augment', 'claude-code', 'cursor'])
+  assert.ok(values.includes('codex') && values.includes('gemini-cli'))
+  assert.equal(values.includes('universal'), false)
+  assert.equal(values.length, agents.length - 1)
+  assert.deepEqual(picker.initialValues, ['augment'])
+  assert.equal(picker.options[1].label, 'Claude Code, found on this machine')
+  assert.equal(picker.options[2].hint, '.agents/skills')
+  assert.equal(picker.options[0].label, 'Augment')
 })

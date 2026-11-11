@@ -58,7 +58,7 @@ test('--yes takes the agents found on this machine, with the shared-folder ones 
   for (const request of only(requests)) assert.deepEqual(request.agents, ['universal', 'claude-code'])
 })
 
-test('--tools wins, takes display names in any case and skips the picker', async (t) => {
+test('--tools wins, keeps the ids given, takes display names in any case and skips the picker', async (t) => {
   const dir = await tempDir(t)
   const { prompts, asked } = fakePrompts()
   const { cli, requests, scripts, env } = parts(dir)
@@ -70,7 +70,7 @@ test('--tools wins, takes display names in any case and skips the picker', async
 
   assert.equal(code, 0)
   assert.equal(asked.includes('agents'), false)
-  for (const request of only(requests)) assert.deepEqual(request.agents, ['universal', 'claude-code'])
+  for (const request of only(requests)) assert.deepEqual(request.agents, ['claude-code', 'cursor'])
 })
 
 test('an unknown --tools id stops the run before anything installs', async (t) => {
@@ -87,7 +87,7 @@ test('an unknown --tools id stops the run before anything installs', async (t) =
 
 test('the picker runs after the module prompt and its answer goes to every call', async (t) => {
   const dir = await tempDir(t)
-  const { prompts, asked, said, pickers } = fakePrompts({ agents: ['universal', 'claude-code'] })
+  const { prompts, asked, said, pickers } = fakePrompts({ agents: ['codex', 'claude-code'] })
   const { cli, requests, scripts, env } = parts(dir)
 
   const code = await install(
@@ -97,12 +97,12 @@ test('the picker runs after the module prompt and its answer goes to every call'
 
   assert.equal(code, 0)
   assert.deepEqual(asked, ['intro', 'confirm', 'modules', 'agents'])
-  assert.deepEqual(pickers[0], { initial: ['universal'], detected: ['universal'], found: ['codex'] })
-  for (const request of only(requests)) assert.deepEqual(request.agents, ['universal', 'claude-code'])
-  assert.ok(said.notes.some((note) => note.includes('npx bmad-method install -m method -t universal,claude-code -y')))
+  assert.deepEqual(pickers[0], { initial: [], found: ['codex'] }, 'a found agent is listed, not ticked')
+  for (const request of only(requests)) assert.deepEqual(request.agents, ['codex', 'claude-code'])
+  assert.ok(said.notes.some((note) => note.includes('npx bmad-method install -m method -t codex,claude-code -y')))
 })
 
-test('the picker prefers the last skills CLI pick over the agents found', async (t) => {
+test('on a fresh project the picker ticks the last skills CLI pick', async (t) => {
   const dir = await tempDir(t)
   await writeLastPick(dir, ['augment', 'cursor', 'not-an-agent'])
   const { prompts, pickers } = fakePrompts()
@@ -113,7 +113,7 @@ test('the picker prefers the last skills CLI pick over the agents found', async 
     makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, env, detect: detectWith([join(HOME, '.codex')]) }),
   )
 
-  assert.deepEqual(pickers[0].initial, ['universal', 'augment'])
+  assert.deepEqual(pickers[0].initial, ['augment', 'cursor'])
 })
 
 test('the picker prefers the agents already holding bmad in the project', async (t) => {
@@ -129,5 +129,5 @@ test('the picker prefers the agents already holding bmad in the project', async 
 
   await install(options({ directory: dir }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, env, detect }))
 
-  assert.deepEqual(pickers[0].initial, ['universal', 'claude-code'])
+  assert.deepEqual(pickers[0].initial, ['claude-code', 'codex'], 'cursor was the last pick but is not found, so the shared folder ticks only codex')
 })

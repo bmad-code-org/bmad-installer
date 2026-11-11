@@ -47,7 +47,7 @@ export function fakePrompts(answers = {}) {
   const said = { notes: [], says: [], warns: [], fails: [], finish: [] }
   /** @type {string[]} */
   const asked = []
-  /** @type {{ initial: string[], detected: string[], found: string[] }[]} */
+  /** @type {{ initial: string[], found: string[] }[]} */
   const pickers = []
   const prompts = /** @type {any} */ ({
     showIntro: () => asked.push('intro'),
@@ -60,10 +60,10 @@ export function fakePrompts(answers = {}) {
     askDirectory: async (/** @type {any} */ _m, /** @type {string} */ d) => (asked.push('directory'), d),
     confirm: async () => (asked.push('confirm'), answers.confirm ?? true),
     chooseModules: async () => (asked.push('modules'), answers.modules ?? ['method']),
-    chooseAgents: async (/** @type {any} */ _m, /** @type {any} */ _a, /** @type {{ initial: string[], detected: string[], found: string[] }} */ picker) => {
+    chooseAgents: async (/** @type {any} */ _m, /** @type {any} */ _a, /** @type {{ initial: string[], found: string[] }} */ picker) => {
       asked.push('agents')
       pickers.push(picker)
-      return answers.agents ?? picker.initial
+      return answers.agents ?? (picker.initial.length > 0 ? picker.initial : ['claude-code'])
     },
     chooseExistingAction: async () => (asked.push('existing'), answers.existing ?? 'modify'),
   })

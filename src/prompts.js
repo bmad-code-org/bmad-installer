@@ -12,13 +12,11 @@ import {
   spinner,
   text,
 } from '@clack/prompts'
-import { UNIVERSAL_AGENT, UNIVERSAL_DIR, isUniversal } from './agents.js'
+import { UNIVERSAL_AGENT } from './agents.js'
 import { message } from './messages.js'
 
-const SHARED_NAMES_SHOWN = 3
 
 /** @typedef {import('./agents.js').Agent} Agent */
-/** @typedef {Picker & { searchText: Record<string, string> }} AgentPicker */
 /** @typedef {import('./modules.js').ModuleDefinition} ModuleDefinition */
 /** @typedef {{ options: { value: string, label: string, hint: string }[], initialValues: string[] }} Picker */
 
@@ -160,59 +158,46 @@ export async function chooseModules(messages, modules, options) {
 }
 
 /**
- * One entry for every agent that reads `.agents/skills`, then the agents with a folder of their own.
- * Preselected entries come first, then the ones found on this machine, then the rest in table order.
+ * Every agent under its own name; the skills CLI writes `.agents/skills` once however many of the
+ * agents that share it are picked. Preselected agents come first, then the ones found on this
+ * machine, then the rest in table order.
  * @param {Record<string, any>} messages
  * @param {Agent[]} agents
- * @param {{ initial: string[], detected: string[], found: string[] }} options
- * @returns {AgentPicker}
+ * @param {{ initial: string[], found: string[] }} options
+ * @returns {Picker}
  */
 export function agentPicker(messages, agents, options) {
-  const shared = agents.filter((agent) => isUniversal(agent) && agent.id !== UNIVERSAL_AGENT)
-  const names = [
-    ...shared.filter((agent) => options.found.includes(agent.id)),
-    ...shared.filter((agent) => !options.found.includes(agent.id)),
-  ].map((agent) => agent.name)
-  // clack shows a hint only on the highlighted row, so what must always be seen goes in the label.
-  const shown = names.length > SHARED_NAMES_SHOWN
-    ? message(messages, 'universalNames', { names: names.slice(0, SHARED_NAMES_SHOWN).join(', '), count: names.length - SHARED_NAMES_SHOWN })
-    : names.join(', ')
-  const universal = {
-    value: UNIVERSAL_AGENT,
-    label: message(messages, 'universalLabel', { names: shown }),
-    hint: UNIVERSAL_DIR,
-    search: names.join(' '),
-  }
-  const own = agents.filter((agent) => !isUniversal(agent)).map((agent) => ({
-    value: agent.id,
-    label: options.detected.includes(agent.id) ? message(messages, 'agentFoundLabel', { name: agent.name }) : agent.name,
-    hint: agent.skillsDir,
-    search: agent.name,
-  }))
-  const rank = (/** @type {string} */ id) => (options.initial.includes(id) ? 0 : options.detected.includes(id) ? 1 : 2)
-  const ordered = [universal, ...own].map((entry, index) => ({ entry, index }))
-    .sort((a, b) => rank(a.entry.value) - rank(b.entry.value) || a.index - b.index)
-    .map(({ entry }) => entry)
+  const rank = (/** @type {Agent} */ agent) => (options.initial.includes(agent.id) ? 0 : options.found.includes(agent.id) ? 1 : 2)
+  const ordered = agents
+    .filter((agent) => agent.id !== UNIVERSAL_AGENT)
+    .map((agent, index) => ({ agent, index }))
+    .sort((a, b) => rank(a.agent) - rank(b.agent) || a.index - b.index)
+    .map(({ agent }) => agent)
   return {
-    options: ordered.map(({ value, label, hint }) => ({ value, label, hint })),
+    // clack shows a hint only on the highlighted row, so "found" goes in the label.
+    options: ordered.map((agent) => ({
+      value: agent.id,
+      label: options.found.includes(agent.id) ? message(messages, 'agentFoundLabel', { name: agent.name }) : agent.name,
+      hint: agent.skillsDir,
+    })),
     initialValues: options.initial,
-    searchText: Object.fromEntries(ordered.map((entry) => [entry.value, `${entry.value} ${entry.label} ${entry.search}`.toLowerCase()])),
   }
 }
 
 /**
  * @param {Record<string, any>} messages
  * @param {Agent[]} agents
- * @param {{ initial: string[], detected: string[], found: string[] }} options
+ * @param {{ initial: string[], found: string[] }} options
  * @returns {Promise<string[]>}
  */
 export async function chooseAgents(messages, agents, options) {
-  const { searchText, ...picker } = agentPicker(messages, agents, options)
+  const picker = agentPicker(messages, agents, options)
+  const search = Object.fromEntries(agents.map((agent) => [agent.id, `${agent.id} ${agent.name}`.toLowerCase()]))
   return ensure(await autocompleteMultiselect({
     message: message(messages, 'agentsPrompt'),
     placeholder: message(messages, 'agentsPlaceholder'),
     ...picker,
-    filter: (search, option) => (searchText[option.value] ?? '').includes(search.trim().toLowerCase()),
+    filter: (query, option) => (search[option.value] ?? '').includes(query.trim().toLowerCase()),
     maxItems: 12,
     required: true,
   }))

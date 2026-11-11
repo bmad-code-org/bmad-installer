@@ -124,10 +124,10 @@ export async function pickChoices(options, deps, existing) {
 }
 
 /**
- * `--tools` wins. Without it, `--yes` takes the agents found on this machine, or the shared
- * `.agents/skills` folder when none is found. Otherwise the picker preselects the agents already
- * holding BMad here, then the last pick in the skills CLI, then the agents found on this machine.
- * Agents that read `.agents/skills` are one choice throughout.
+ * `--tools` wins. Without it, `--yes` takes the agents found on this machine, those sharing
+ * `.agents/skills` folded into the `universal` id, or `universal` alone when none is found.
+ * Otherwise the picker preselects the agents already holding BMad here, else the last pick in the
+ * skills CLI, else nothing; agents found on this machine are listed first but not ticked.
  * @param {CliOptions} options
  * @param {CommandDeps} deps
  * @param {string} directory
@@ -142,11 +142,11 @@ export async function chooseAgents(options, deps, directory, interactive) {
   const detected = collapseUniversal(found, agents)
   if (!interactive) return detected.length > 0 ? detected : [UNIVERSAL_AGENT]
 
-  const known = new Set(agents.map((agent) => agent.id))
-  const holding = agentsHolding(agents, BMAD_SKILL, context)
-  const last = collapseUniversal((await lastPickedAgents(deps.env)).filter((id) => known.has(id)), agents)
-  const initial = holding.length > 0 ? holding : last.length > 0 ? last : detected
-  return prompts.chooseAgents(messages, agents, { initial, detected, found })
+  const listed = new Set(agents.filter((agent) => agent.id !== UNIVERSAL_AGENT).map((agent) => agent.id))
+  const holding = agentsHolding(agents, BMAD_SKILL, context, found)
+  const last = (await lastPickedAgents(deps.env)).filter((id) => listed.has(id))
+  const initial = holding.length > 0 ? holding : last
+  return prompts.chooseAgents(messages, agents, { initial, found })
 }
 
 /**

@@ -37,11 +37,11 @@ An interactive run needs a real terminal. It refuses to start inside a coding ag
 
 ## Choosing coding agents
 
-The agent list is the skills CLI's own, copied into `agents.json` from the skills CLI version this installer ships with. `npx bmad-method --list-tools` prints the ids. Many agents (Codex, Cursor, Gemini CLI, GitHub Copilot and others) read the same `.agents/skills` folder, so the installer treats them as one choice, the `universal` id. Naming any of them in `--tools` means that folder.
+The agent list is the skills CLI's own, copied into `agents.json` from the skills CLI version this installer ships with. `npx bmad-method --list-tools` prints the ids. Many agents (Codex, Cursor, Gemini CLI, GitHub Copilot and others) read the same `.agents/skills` folder; the skills CLI writes it once however many of them you pick.
 
-- Interactive without `--tools`: the installer shows a searchable agent picker. It preselects the agents that already hold BMad in this project, otherwise your last pick in the skills CLI, otherwise the agents found on this machine.
+- Interactive without `--tools`: a searchable picker lists every agent by name, with the ones found on this machine first. It ticks the agents that already hold BMad in this project, otherwise your last pick in the skills CLI, otherwise nothing.
 - `--tools <ids>`: every install goes to those agents and the picker never shows. Ids and display names both work. An unknown id stops the run before anything installs.
-- `--yes` without `--tools`: every agent found on this machine, the way the skills CLI's own `--yes` picks. When none is found, the shared `.agents/skills` folder only (the `universal` id).
+- `--yes` without `--tools`: every agent found on this machine, the way the skills CLI's own `--yes` picks, with those sharing `.agents/skills` written as the one `universal` id. When none is found, `universal` alone.
 
 ## Where skills land
 

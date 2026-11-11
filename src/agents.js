@@ -80,19 +80,24 @@ export function collapseUniversal(ids, agents) {
 }
 
 /**
- * The agents whose skills folder in the project already holds `skill`, collapsed.
+ * The agents whose skills folder in the project already holds `skill`. Every agent that reads
+ * `.agents/skills` would count, so of those only the ones in `found` do.
  * @param {Agent[]} agents
  * @param {string} skill
  * @param {DetectContext} context
+ * @param {string[]} found
  * @returns {string[]}
  */
-export function agentsHolding(agents, skill, context) {
-  const holding = agents.filter((agent) => context.exists(join(context.project, agent.skillsDir, skill)))
-  return collapseUniversal(holding.map((agent) => agent.id), agents)
+export function agentsHolding(agents, skill, context, found) {
+  return agents
+    .filter((agent) => agent.id !== UNIVERSAL_AGENT)
+    .filter((agent) => context.exists(join(context.project, agent.skillsDir, skill)))
+    .filter((agent) => !isUniversal(agent) || found.includes(agent.id))
+    .map((agent) => agent.id)
 }
 
 /**
- * Reads `--tools`, matching an id or a display name without regard to case. Universal ids collapse.
+ * Reads `--tools`, matching an id or a display name without regard to case.
  * @param {string} value
  * @param {Agent[]} agents
  * @returns {string[]}
@@ -111,5 +116,5 @@ export function parseToolsFlag(value, agents) {
   }
   if (unknown.length > 0) throw new AgentsError(unknown.join(', '))
   if (ids.length === 0) throw new AgentsError(value)
-  return collapseUniversal(ids, agents)
+  return ids
 }
