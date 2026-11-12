@@ -2,11 +2,11 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  renderClosing,
+  problemLines,
   renderFailures,
   renderMigrations,
-  renderModuleMessages,
   renderStatus,
+  renderSummary,
   versionMajor,
 } from '../src/report.js'
 
@@ -26,7 +26,15 @@ const messages = {
   reportFailure: 'Failed: {skill} ({error})',
   migrationsAvailable: 'Migrations are available.',
   migrationLine: '{title} - {module} {from} to {to}',
-  closing: 'Installed in {directory}. Ask your agent for bmad setup.',
+  summaryTitle: 'Installed',
+  summaryTitleProblems: 'Installed, with problems',
+  summaryProject: 'Project {directory}',
+  summaryModules: 'Modules {modules}',
+  summaryModuleGroup: '{names} ({version})',
+  summaryAgents: 'Agents {agents}',
+  summaryNextSetup: 'Next: bmad setup',
+  summaryNextCurrent: 'Next: ask bmad',
+  summaryNextOther: 'Next: {next}',
 }
 
 /** @param {string} name @returns {StatusReport} */
@@ -177,29 +185,36 @@ test('renderMigrations is empty without migrations and lists them otherwise', ()
   ])
 })
 
-test('renderModuleMessages joins only the modules that carry a message', () => {
+test('renderSummary groups modules by version, drops the brand prefix and picks the next step', () => {
   /** @type {ModuleDefinition[]} */
   const modules = [
-    { code: 'core-tools', name: 'Core', description: 'c', source: 'a/b', record: 'bmod-core-tools' },
-    {
-      code: 'method',
-      name: 'Method',
-      description: 'm',
-      source: 'a/b',
-      record: 'bmod-method',
-      message: 'Ask the bmad skill what to do next.\n',
-    },
+    { code: 'core-tools', name: 'BMad Core Tools', description: 'c', source: 'a/b', record: 'bmod-core-tools' },
+    { code: 'method', name: 'BMad Method', description: 'm', source: 'a/b', record: 'bmod-method' },
   ]
+  const report = fixture('status-fresh.json')
+  const summary = renderSummary(report, { messages, modules, directory: '/tmp/demo', agents: ['Claude Code', 'Cursor'], problems: false })
+  assert.equal(summary.title, 'Installed')
+  assert.equal(summary.body, 'Project /tmp/demo\nModules Core Tools, Method (6.13.0-next)\nAgents Claude Code, Cursor\n\nNext: bmad setup')
 
-  assert.equal(renderModuleMessages(modules), 'Ask the bmad skill what to do next.')
-  assert.equal(renderModuleMessages([]), '')
+  report.modules[1].version = '7.0.0'
+  report.current = true
+  const later = renderSummary(report, { messages, modules, directory: '/tmp/demo', problems: true })
+  assert.equal(later.title, 'Installed, with problems')
+  assert.equal(later.body, 'Project /tmp/demo\nModules Core Tools (6.13.0-next); Method (7.0.0)\n\nNext: ask bmad')
+
+  report.current = false
+  report.next = 'npx skills update'
+  assert.ok(renderSummary(report, { messages, modules, directory: '/d', problems: false }).body.endsWith('Next: npx skills update'))
 })
 
-test('renderClosing fills in the directory', () => {
-  assert.equal(
-    renderClosing(messages, { directory: '/tmp/demo' }),
-    'Installed in /tmp/demo. Ask your agent for bmad setup.',
-  )
+test('problemLines lists failures first and is empty for a clean report', () => {
+  assert.deepEqual(problemLines(fixture('status-fresh.json'), [], messages), [])
+  const report = fixture('status-fresh.json')
+  report.problems = [{ kind: 'duplicate', message: 'two copies of bmad' }]
+  assert.deepEqual(problemLines(report, [{ name: 'bmad-x', status: 'failed', error: 'network' }], messages), [
+    'Failed: bmad-x (network)',
+    'Problem: two copies of bmad',
+  ])
 })
 
 test('versionMajor reads the leading major version', () => {

@@ -1,16 +1,6 @@
 intro: |-
-  BMad Installer installs BMad modules as agent skills.
-  It is free and open source.
-  Installs run through the skills CLI (npx skills). You need uv installed.
-
-  Docs     https://docs.bmad-method.org
-  GitHub   https://github.com/bmad-code-org/BMAD-METHOD
-  Discord  https://discord.gg/gk8jAdXWmj
-  YouTube  https://www.youtube.com/@BMadCode
-  X        https://x.com/BMadCode
-
-  Support: star the repo, https://buymeacoffee.com/bmad
-  Contact: contact@bmadcode.com
+  Installs BMad modules as agent skills. Free and open source.
+  You need uv installed. Docs: https://docs.bmad-method.org
 
 updateAvailable: |-
   You are using version {current} but {latest} is available.
@@ -131,28 +121,47 @@ reportProblem: "Problem: {message}"
 
 reportFailure: "Failed to install {skill}: {error}"
 
+summaryTitle: "BMad is installed"
+
+summaryTitleProblems: "BMad is installed, with problems"
+
+summaryTitleUpdated: "BMad is updated"
+
+summaryTitleUpdatedProblems: "BMad is updated, with problems"
+
+summaryProject: "Project   {directory}"
+
+summaryModules: "Modules   {modules}"
+
+summaryModuleGroup: "{names} ({version})"
+
+summaryAgents: "Agents    {agents}"
+
+summaryNextSetup: |-
+  Next: open your coding agent in this project and ask it to run
+  bmad setup. Setup finishes the install, then ask the bmad skill
+  what to do next.
+
+summaryNextCurrent: "Next: ask the bmad skill in your coding agent what to do next."
+
+summaryNextOther: "Next: {next}"
+
+universalAgentName: "Shared .agents/skills folder"
+
+updateLater: "Update later:  npx bmad-method update"
+
 repeatInstall: |-
-  To repeat this install without prompts:
+  Same install without prompts:
   {command}
 
-closing: |-
-  BMad is installed in:
-  {directory}
-  Open your coding agent in this directory.
-
-  Ask it to run: bmad setup
-  Setup asks the configuration questions and finishes the install.
-  Configuration and customization are its job from now on.
-
-  Three ways to change this install later:
-    ask the bmad skill
-    npx bmad-method update
-    npx skills update
-
-  npx skills remove removes skills. This installer never removes anything.
-
-  After adding or updating any skill by any route,
-  ask the bmad skill to update. Only it reconciles what is installed.
+thanks: |-
+  Thanks for installing BMad.
+  Read the blog         https://blog.bmadcode.com
+  Star the repo         https://github.com/bmad-code-org/BMAD-METHOD
+  Join Discord          https://discord.gg/gk8jAdXWmj
+  Watch                 https://www.youtube.com/@BMadCode
+  Buy a coffee          https://buymeacoffee.com/bmad
+  Support and contact   https://bmadcode.com/#contact
 
 cancelled: "Cancelled. Anything already installed is still there."
 

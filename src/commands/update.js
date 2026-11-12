@@ -2,7 +2,8 @@ import { resolve } from 'node:path'
 import { inspectInstall } from '../installed.js'
 import { message } from '../messages.js'
 import { runPreflight } from '../preflight.js'
-import { renderClosing, renderMigrations, renderModuleMessages, renderStatus } from '../report.js'
+import { renderMigrations } from '../report.js'
+import { showEnding } from './ending.js'
 import { selectMigrations, versionsByCode } from './install-plan.js'
 import { statusWithSpinner } from './status.js'
 
@@ -59,11 +60,7 @@ export async function update(options, deps, context = {}) {
   const migrationText = renderMigrations(migrations, messages)
   if (migrationText) prompts.showNote(migrationText)
 
-  prompts.showNote(renderStatus(report, { failures: [], messages, modules }))
-  const moduleText = renderModuleMessages(modules.filter((module) => codes.includes(module.code)))
-  if (moduleText) prompts.showNote(moduleText)
-  prompts.showNote(renderClosing(messages, { directory }))
-  prompts.finish('')
+  showEnding(deps, { report, failures: [], directory, updated: true })
 
   return result.code === 0 ? 0 : 1
 }

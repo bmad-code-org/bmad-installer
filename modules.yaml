@@ -15,9 +15,6 @@ modules:
     source: bmad-code-org/BMAD-METHOD/skills/method
     record: bmod-method
     default: true
-    message: |
-      BMad Method is installed.
-      Once setup is done, ask the `bmad` skill what to do next.
 
   - code: toolsmith
     name: BMad Toolsmith

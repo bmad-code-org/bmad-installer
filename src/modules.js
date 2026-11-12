@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { parse } from 'yaml'
 import { packageRoot } from './version.js'
 
-/** @typedef {{ code: string, name: string, description: string, source: string, record: string, aliases?: string[], always?: boolean, default?: boolean, deprecated?: string, message?: string }} ModuleDefinition */
+/** @typedef {{ code: string, name: string, description: string, source: string, record: string, aliases?: string[], always?: boolean, default?: boolean, deprecated?: string }} ModuleDefinition */
 
 const SOURCE_PATTERN = /^[\w.-]+\/[\w.-]+(\/[\w.-]+)*$/
 const SOURCE_OVERRIDE = 'BMAD_INSTALLER_SOURCE_OVERRIDE'
@@ -72,7 +72,6 @@ function validateModule(entry, index, taken) {
   if (entry.always === true) module.always = true
   if (entry.default === true) module.default = true
   if (entry.deprecated !== undefined) module.deprecated = requireText(entry.deprecated, where, 'deprecated')
-  if (entry.message !== undefined) module.message = requireText(entry.message, where, 'message')
   return module
 }
 

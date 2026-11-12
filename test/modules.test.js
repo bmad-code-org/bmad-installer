@@ -50,7 +50,6 @@ test('loads and validates the real modules.yaml', async () => {
   assert.equal(method.record, 'bmod-method')
   assert.equal(method.source, 'bmad-code-org/BMAD-METHOD/skills/method')
   assert.equal(must(modules, 'founder').record, 'bmad-founder-agent-advisor')
-  assert.ok(method.message && method.message.length > 0)
 })
 
 test('parseModulesFlag reads comma-separated codes and aliases', async () => {

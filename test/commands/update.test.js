@@ -45,9 +45,12 @@ test('the update runs the CLI, then reports and closes', async () => {
   assert.deepEqual(only(requests, 'update'), [{ kind: 'update', cwd: resolve('/project') }])
   assert.deepEqual(seen, ['/project/.agents/skills/bmad', '/project/.agents/skills/bmad'])
   assert.deepEqual(said.says, [messages.updateSpinnerDone])
-  assert.ok(said.notes.some((note) => note.startsWith(messages.reportTitle)))
-  assert.ok(said.notes.some((note) => note.includes('ask the `bmad` skill what to do next')))
-  assert.ok(said.notes.at(-1)?.includes('bmad setup'))
+  const summary = said.notes.at(-1) ?? ''
+  assert.ok(summary.startsWith(messages.summaryTitleUpdated), summary)
+  assert.ok(summary.includes('bmad setup'))
+  assert.equal(summary.includes('Agents'), false, 'update shows no agents line')
+  assert.equal(said.plain.some((text) => text.includes('npx bmad-method update')), false)
+  assert.ok(said.plain.at(-1)?.startsWith('Thanks for installing BMad.'))
   assert.deepEqual(said.finish, [''])
 })
 
@@ -59,7 +62,7 @@ test('a failing skills CLI still reports and exits 1', async () => {
   const code = await update(updateOptions(), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts }))
 
   assert.equal(code, 1)
-  assert.ok(said.notes.some((note) => note.startsWith(messages.reportTitle)))
+  assert.ok(said.notes.some((note) => note.startsWith(messages.summaryTitleUpdated)))
 })
 
 test('migrations compare the versions before and after the update', async () => {

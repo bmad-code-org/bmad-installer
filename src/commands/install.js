@@ -1,7 +1,8 @@
 import { inspectInstall } from '../installed.js'
 import { message } from '../messages.js'
 import { runPreflight } from '../preflight.js'
-import { renderClosing, renderFailures, renderMigrations, renderModuleMessages, renderStatus } from '../report.js'
+import { renderFailures, renderMigrations } from '../report.js'
+import { showEnding } from './ending.js'
 import {
   chosenModules,
   moduleCalls,
@@ -17,9 +18,9 @@ import {
   readExisting,
   resolveDirectory,
 } from './install-steps.js'
-import { statusWithSpinner } from './status.js'
 import { update } from './update.js'
 
+/** @typedef {import('../bmad-scripts.js').StatusReport} StatusReport */
 /** @typedef {import('../cli.js').CliOptions} CliOptions */
 /** @typedef {import('../modules.js').ModuleDefinition} ModuleDefinition */
 /** @typedef {import('../run.js').Runner} Runner */
@@ -88,19 +89,31 @@ export async function install(options, deps) {
 
   /** @type {AddResult[]} */
   const failures = []
-  for (const call of moduleCalls(chosen, existing.report)) {
-    failures.push(...(await add(call, agents, directory, deps)))
+  const progress = prompts.startSpinner(message(messages, 'statusSpinner'))
+  /** @type {string | null} */
+  let bmadSkillDir = null
+  /** @type {StatusReport | null} */
+  let report = null
+  try {
+    for (const call of moduleCalls(chosen, existing.report)) {
+      progress.update(message(messages, 'installingSpinner', { what: call.label }))
+      failures.push(...(await add(call, agents, directory, deps)))
+    }
+    bmadSkillDir = (await inspectInstall(directory, deps.skillsCli)).bmadSkillDir
+    if (bmadSkillDir) {
+      progress.update(message(messages, 'statusSpinner'))
+      report = await bmadScripts.status(bmadSkillDir, directory)
+    }
+  } finally {
+    progress.stop()
   }
-
-  const { bmadSkillDir } = await inspectInstall(directory, deps.skillsCli)
-  if (!bmadSkillDir) {
+  if (!bmadSkillDir || !report) {
     prompts.fail(failures.length > 0
       ? renderFailures(failures, messages)
       : message(messages, 'firstInstallNotInProject', { directory }))
     return 1
   }
 
-  const report = await statusWithSpinner(deps, bmadSkillDir, directory)
   const migrations = selectMigrations(await bmadScripts.migrations(bmadSkillDir), {
     codes: chosen.map((module) => module.code),
     before: existing.versions,
@@ -109,12 +122,7 @@ export async function install(options, deps) {
   const migrationText = renderMigrations(migrations, messages)
   if (migrationText) prompts.showNote(migrationText)
 
-  prompts.showNote(renderStatus(report, { failures, messages, modules }))
-  const moduleText = renderModuleMessages(chosen)
-  if (moduleText) prompts.showNote(moduleText)
-  prompts.showNote(message(messages, 'repeatInstall', { command: repeatCommand(chosen, agents) }))
-  prompts.showNote(renderClosing(messages, { directory }))
-  prompts.finish('')
+  showEnding(deps, { report, failures, directory, agents, repeat: repeatCommand(chosen, agents) })
 
   return failures.length === 0 && (report.current || report.next === SETUP_NEXT) ? 0 : 1
 }

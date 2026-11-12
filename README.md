@@ -23,7 +23,7 @@ Interactive, in a terminal:
 npx bmad-method
 ```
 
-It asks where to install, which modules you want and which coding agents get the skills. Each module installs whole; to pick single skills, use `npx skills add` directly. The installer then runs the skills CLI without prompts. The closing message names the directory and tells you to run `bmad setup` in your coding agent. It also shows the `npx bmad-method` command that repeats the install without prompts.
+It asks where to install, which modules you want and which coding agents get the skills. Each module installs whole; to pick single skills, use `npx skills add` directly. The installer then runs the skills CLI without prompts and ends with a summary: the project, the modules and their version, the agents, and the next step.
 
 Headless, for scripts and CI:
 
@@ -67,9 +67,9 @@ The skills CLI decides. With one agent it copies the skills into that agent's fo
 
 A 6.12 flag this installer dropped prints one line about it, then exits without installing.
 
-## What the closing message tells you
+## What the summary tells you
 
-The closing message names the directory BMad went into and asks you to open your coding agent there and tell it to run `bmad setup`. Setup asks the configuration questions and finishes the install. Configuration and customization belong to the `bmad` skill from then on; this installer never asks those questions.
+The summary names the project, the modules with their version and the coding agents, and asks you to open your coding agent there and tell it to run `bmad setup`. Setup asks the configuration questions, finishes the install, and shows each module's message about where to start. Configuration and customization belong to the `bmad` skill from then on; this installer never asks those questions. Anything that failed is listed above the summary. Below it are the update command, the command that repeats the install without prompts, and links to the blog, GitHub, Discord, YouTube and bmadcode.com.
 
 ## Updating
 

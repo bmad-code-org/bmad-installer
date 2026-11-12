@@ -56,6 +56,14 @@ export function say(text) {
   log.info(text)
 }
 
+/**
+ * Plain lines on the guide bar, with no icon.
+ * @param {string} text
+ */
+export function plain(text) {
+  log.message(text)
+}
+
 /** @param {string} text */
 export function warn(text) {
   log.warn(text)
@@ -72,14 +80,15 @@ export function fail(text) {
 }
 
 /**
- * Stopping clears the line: the report that follows says what happened.
+ * Stopping clears the line: the report that follows says what happened. One spinner can carry
+ * several steps with `update`, so a run leaves one blank line, not one per step.
  * @param {string} text
- * @returns {{ stop(): void }}
+ * @returns {{ stop(): void, update(text: string): void }}
  */
 export function startSpinner(text) {
   const active = spinner()
   active.start(text)
-  return { stop: () => active.clear() }
+  return { stop: () => active.clear(), update: (next) => active.message(next) }
 }
 
 /**

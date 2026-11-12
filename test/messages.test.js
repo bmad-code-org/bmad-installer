@@ -38,7 +38,7 @@ const keysWithValues = {
   agentFoundLabel: { name: 'Claude Code' },
   unknownTools: { ids: 'nope' },
   firstInstallNotInProject: { directory: '/tmp/project' },
-  repeatInstall: { command: 'npx bmad-method install -m method -t universal,claude-code -y' },
+  repeatInstall: { command: 'npx bmad-method install -m method -t claude-code -y' },
   installingSpinner: { what: 'BMad Method' },
   statusSpinner: {},
   nothingToUpdate: {},
@@ -62,7 +62,20 @@ const keysWithValues = {
   reportPendingQuestions: { count: 3 },
   reportProblem: { message: 'Two records claim the same module.' },
   reportFailure: { skill: 'bmad-prd', error: 'No matching skill found in source' },
-  closing: { directory: '/tmp/project' },
+  summaryTitle: {},
+  summaryTitleProblems: {},
+  summaryTitleUpdated: {},
+  summaryTitleUpdatedProblems: {},
+  summaryProject: { directory: '/tmp/project' },
+  summaryModules: { modules: 'Core Tools, Method (6.13.0-next)' },
+  summaryModuleGroup: { names: 'Core Tools, Method', version: '6.13.0-next' },
+  summaryAgents: { agents: 'Claude Code, Cursor' },
+  summaryNextSetup: {},
+  summaryNextCurrent: {},
+  summaryNextOther: { next: 'npx skills update' },
+  universalAgentName: {},
+  updateLater: {},
+  thanks: {},
   cancelled: {},
   droppedUninstall: {},
 }
@@ -114,22 +127,29 @@ test('droppedFlags has one line for every dropped flag', () => {
   }
 })
 
-test('closing names every route the user needs', () => {
-  const text = message(loaded, 'closing', { directory: '/tmp/project' })
-  for (const needle of ['bmad setup', 'npx bmad-method update', 'npx skills update', 'npx skills remove']) {
-    assert.ok(text.includes(needle), `closing is missing: ${needle}`)
+test('the ending names setup, the update command and every link once', () => {
+  const next = message(loaded, 'summaryNextSetup')
+  assert.ok(next.includes('bmad setup'))
+  assert.ok(message(loaded, 'updateLater').includes('npx bmad-method update'))
+  const thanks = message(loaded, 'thanks')
+  for (const link of [
+    'https://blog.bmadcode.com',
+    'https://github.com/bmad-code-org/BMAD-METHOD',
+    'https://discord.gg/gk8jAdXWmj',
+    'https://www.youtube.com/@BMadCode',
+    'https://buymeacoffee.com/bmad',
+    'https://bmadcode.com/#contact',
+  ]) {
+    assert.ok(thanks.includes(link), `thanks is missing: ${link}`)
+    assert.equal(message(loaded, 'intro').includes(link), false, `intro repeats ${link}`)
   }
-  assert.ok(text.includes('/tmp/project'))
-  const index = text.indexOf('bmad setup')
-  assert.ok(index < text.indexOf('npx bmad-method update'))
-  assert.ok(text.indexOf('npx skills update') < text.indexOf('npx skills remove'))
 })
 
 test('the prose blocks fit the clack note box without rewrapping', () => {
   const blocks = [
     'intro', 'updateAvailable', 'nodeTooOld', 'nodeBelowSkillsFloor', 'uvMissing', 'wslWindowsNode',
     'needsTerminal', 'insideAgent', 'legacyManifest', 'firstInstallNotInProject', 'unknownTools', 'repeatInstall',
-    'nothingInstalled', 'nothingToUpdate', 'cancelled', 'closing', 'droppedUninstall',
+    'nothingInstalled', 'nothingToUpdate', 'cancelled', 'summaryNextSetup', 'thanks', 'droppedUninstall',
   ]
   for (const key of blocks) {
     for (const line of message(loaded, key, keysWithValues[key]).split('\n')) {
@@ -138,25 +158,11 @@ test('the prose blocks fit the clack note box without rewrapping', () => {
   }
 })
 
-test('closing reads in a terminal', () => {
-  const lines = message(loaded, 'closing', { directory: '/tmp/project' }).split('\n')
-  assert.ok(lines.some((line) => line === ''), 'closing has no blank line between groups')
-})
-
-test('intro is short and carries the links', () => {
+test('intro is two lines with the docs link', () => {
   const text = message(loaded, 'intro')
-  assert.ok(text.split('\n').length < 20)
-  for (const link of [
-    'https://docs.bmad-method.org',
-    'https://github.com/bmad-code-org/BMAD-METHOD',
-    'https://discord.gg/gk8jAdXWmj',
-    'https://www.youtube.com/@BMadCode',
-    'https://x.com/BMadCode',
-    'https://buymeacoffee.com/bmad',
-    'contact@bmadcode.com',
-  ]) {
-    assert.ok(text.includes(link), `intro is missing: ${link}`)
-  }
+  assert.equal(text.split('\n').length, 2)
+  assert.ok(text.includes('https://docs.bmad-method.org'))
+  assert.ok(text.includes('uv'))
 })
 
 test('render fills placeholders and throws when a value is missing', () => {

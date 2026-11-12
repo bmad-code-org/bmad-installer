@@ -60,7 +60,8 @@ test('a skipped skill is reported and turns the run into an exit 1', async (t) =
   )
 
   assert.equal(code, 1)
-  assert.ok(said.notes.some((note) => note.includes('Failed to install bmad-agent-pm: No matching skill found in source')))
+  assert.ok(said.warns.some((warning) => warning.includes('Failed to install bmad-agent-pm: No matching skill found in source')))
+  assert.ok(said.notes.at(-1)?.startsWith(messages.summaryTitleProblems))
 })
 
 test('the run stops when bmad did not land in the project', async (t) => {

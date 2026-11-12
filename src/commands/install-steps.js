@@ -157,11 +157,6 @@ export async function chooseAgents(options, deps, directory, interactive) {
  * @returns {Promise<AddResult[]>}
  */
 export async function add(call, agents, directory, deps) {
-  const spinner = deps.prompts.startSpinner(message(deps.messages, 'installingSpinner', { what: call.label }))
-  try {
-    const results = await deps.skillsCli.add({ source: call.source, skills: call.skills, agents, cwd: directory })
-    return results.filter((entry) => entry.status !== 'installed')
-  } finally {
-    spinner.stop()
-  }
+  const results = await deps.skillsCli.add({ source: call.source, skills: call.skills, agents, cwd: directory })
+  return results.filter((entry) => entry.status !== 'installed')
 }

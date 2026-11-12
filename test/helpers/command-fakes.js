@@ -44,19 +44,20 @@ export function listed(name) {
 /** @param {Record<string, any>} [answers] */
 export function fakePrompts(answers = {}) {
   /** @type {Record<string, string[]>} */
-  const said = { notes: [], says: [], warns: [], fails: [], finish: [] }
+  const said = { notes: [], says: [], warns: [], fails: [], finish: [], plain: [] }
   /** @type {string[]} */
   const asked = []
   /** @type {{ initial: string[], found: string[] }[]} */
   const pickers = []
   const prompts = /** @type {any} */ ({
     showIntro: () => asked.push('intro'),
-    showNote: (/** @type {string} */ t) => said.notes.push(t),
+    showNote: (/** @type {string} */ t, /** @type {string | undefined} */ title) => said.notes.push(title ? `${title}\n${t}` : t),
     say: (/** @type {string} */ t) => said.says.push(t),
+    plain: (/** @type {string} */ t) => said.plain.push(t),
     warn: (/** @type {string} */ t) => said.warns.push(t),
     fail: (/** @type {string} */ t) => said.fails.push(t),
     finish: (/** @type {string} */ t) => said.finish.push(t),
-    startSpinner: () => ({ stop: () => {} }),
+    startSpinner: () => ({ stop: () => {}, update: () => {} }),
     askDirectory: async (/** @type {any} */ _m, /** @type {string} */ d) => (asked.push('directory'), d),
     confirm: async () => (asked.push('confirm'), answers.confirm ?? true),
     chooseModules: async () => (asked.push('modules'), answers.modules ?? ['method']),

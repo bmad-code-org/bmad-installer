@@ -99,7 +99,8 @@ test('the picker runs after the module prompt and its answer goes to every call'
   assert.deepEqual(asked, ['intro', 'confirm', 'modules', 'agents'])
   assert.deepEqual(pickers[0], { initial: [], found: ['codex'] }, 'a found agent is listed, not ticked')
   for (const request of only(requests)) assert.deepEqual(request.agents, ['codex', 'claude-code'])
-  assert.ok(said.notes.some((note) => note.includes('npx bmad-method install -m method -t codex,claude-code -y')))
+  assert.ok(said.plain.some((text) => text.includes('npx bmad-method install -m method -t codex,claude-code -y')))
+  assert.ok(said.notes.at(-1)?.includes('Agents    Codex, Claude Code'))
 })
 
 test('on a fresh project the picker ticks the last skills CLI pick', async (t) => {
