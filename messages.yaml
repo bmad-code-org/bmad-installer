@@ -139,10 +139,13 @@ summaryAgents: "Agents    {agents}"
 
 summaryNextSetup: |-
   Next: open your coding agent in this project and ask it to run
-  bmad setup. Setup finishes the install, then ask the bmad skill
+  bmad setup, which finishes the install. Then, if you are unsure
+  what BMad and your installed modules can do, ask the bmad skill
   what to do next.
 
-summaryNextCurrent: "Next: ask the bmad skill in your coding agent what to do next."
+summaryNextCurrent: |-
+  Next: if you are unsure what BMad and your installed modules can do,
+  ask the bmad skill in your coding agent what to do next.
 
 summaryNextOther: "Next: {next}"
 

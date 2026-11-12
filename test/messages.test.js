@@ -149,7 +149,7 @@ test('the prose blocks fit the clack note box without rewrapping', () => {
   const blocks = [
     'intro', 'updateAvailable', 'nodeTooOld', 'nodeBelowSkillsFloor', 'uvMissing', 'wslWindowsNode',
     'needsTerminal', 'insideAgent', 'legacyManifest', 'firstInstallNotInProject', 'unknownTools', 'repeatInstall',
-    'nothingInstalled', 'nothingToUpdate', 'cancelled', 'summaryNextSetup', 'thanks', 'droppedUninstall',
+    'nothingInstalled', 'nothingToUpdate', 'cancelled', 'summaryNextSetup', 'summaryNextCurrent', 'thanks', 'droppedUninstall',
   ]
   for (const key of blocks) {
     for (const line of message(loaded, key, keysWithValues[key]).split('\n')) {
