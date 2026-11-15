@@ -1,4 +1,4 @@
-import { customModule, isModuleSource } from '../modules.js'
+import { customModule, isModuleSource, sourceAtRef } from '../modules.js'
 
 /** @typedef {import('../bmad-scripts.js').Migration} Migration */
 /** @typedef {import('../bmad-scripts.js').StatusReport} StatusReport */
@@ -9,19 +9,32 @@ const ALL_SKILLS = '*'
 
 /**
  * Resolves the picked codes in modules.yaml order and adds the `always` modules, which neither
- * the flag nor the prompt ever contributes. Sources from `--modules` follow, in the order given.
+ * the flag nor the prompt has to name. A code picked as `code#ref` comes from that branch or tag.
+ * Sources from `--modules` follow, in the order given.
  * @param {string[]} codes
  * @param {ModuleDefinition[]} modules
  * @returns {ModuleDefinition[]}
  */
 export function chosenModules(codes, modules) {
-  const listed = modules.filter((module) => module.always || codes.includes(module.code))
+  /** @type {Map<string, string | undefined>} */
+  const refs = new Map()
+  for (const picked of codes) {
+    if (isModuleSource(picked)) continue
+    const [code, ref] = picked.split('#')
+    refs.set(code, ref)
+  }
+  const listed = modules
+    .filter((module) => module.always || refs.has(module.code))
+    .map((module) => {
+      const ref = refs.get(module.code)
+      return ref ? { ...module, source: sourceAtRef(module.source, ref), ref } : module
+    })
   return [...listed, ...codes.filter(isModuleSource).map(customModule)]
 }
 
 /**
  * One skills add per module, for every skill in the module's folder. A module already installed
- * with nothing missing is left alone; `update` is what refreshes it.
+ * with nothing missing is left alone, since `update` is what refreshes it, unless a ref was asked for.
  * @param {ModuleDefinition[]} chosen
  * @param {StatusReport | null} installed
  * @returns {InstallCall[]}
@@ -31,7 +44,7 @@ export function moduleCalls(chosen, installed) {
   return chosen
     .filter((module) => {
       const entry = entries.get(module.code)
-      return !entry || entry.absent_skills.length > 0
+      return module.ref || !entry || entry.absent_skills.length > 0
     })
     .map((module) => ({ source: module.source, skills: [ALL_SKILLS], label: module.name }))
 }
@@ -43,8 +56,8 @@ export function moduleCalls(chosen, installed) {
  * @returns {string}
  */
 export function repeatCommand(chosen, agents) {
-  const picked = chosen.filter((module) => !module.always)
-  const codes = (picked.length > 0 ? picked : chosen).map((module) => module.code)
+  const picked = chosen.filter((module) => !module.always || module.ref)
+  const codes = (picked.length > 0 ? picked : chosen).map((module) => (module.ref ? `${module.code}#${module.ref}` : module.code))
   return `npx bmad-method install -m ${codes.join(',')} -t ${agents.join(',')} -y`
 }
 

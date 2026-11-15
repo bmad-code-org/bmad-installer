@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { parse } from 'yaml'
 import { packageRoot } from './version.js'
 
-/** @typedef {{ code: string, name: string, description: string, source: string, record: string, aliases?: string[], always?: boolean, default?: boolean, deprecated?: string, custom?: boolean }} ModuleDefinition */
+/** @typedef {{ code: string, name: string, description: string, source: string, record: string, aliases?: string[], always?: boolean, default?: boolean, deprecated?: string, custom?: boolean, ref?: string }} ModuleDefinition */
 
 const SOURCE_PATTERN = /^[\w.-]+\/[\w.-]+(\/[\w.-]+)*$/
 const SOURCE_OVERRIDE = 'BMAD_INSTALLER_SOURCE_OVERRIDE'
@@ -99,8 +99,8 @@ export async function loadModules(filePath = join(packageRoot, 'modules.yaml')) 
  * @param {string} source
  * @returns {string}
  */
-function repoOf(source) {
-  return source.split('/').slice(0, 2).join('/')
+export function repoOf(source) {
+  return source.split('#')[0].split('/').slice(0, 2).join('/')
 }
 
 /**
@@ -150,7 +150,18 @@ export function normalizeSource(source, cwd = process.cwd()) {
 }
 
 /**
- * Module codes and aliases from modules.yaml, and sources for modules not in it.
+ * The source on a branch or tag. A ref already in the source is replaced.
+ * @param {string} source
+ * @param {string} ref
+ * @returns {string}
+ */
+export function sourceAtRef(source, ref) {
+  return `${source.split('#')[0]}#${ref}`
+}
+
+/**
+ * Module codes and aliases from modules.yaml, each with an optional `#ref` for a branch or tag,
+ * and sources for modules not in it. An alias comes back as its code.
  * @param {string} value
  * @param {ModuleDefinition[]} modules
  * @returns {string[]}
@@ -159,13 +170,25 @@ export function parseModulesFlag(value, modules) {
   /** @type {string[]} */
   const codes = []
   for (const token of value.split(',')) {
-    const codeOrAlias = token.trim()
-    if (codeOrAlias === '') continue
-    const code = isModuleSource(codeOrAlias) ? normalizeSource(codeOrAlias) : findModule(modules, codeOrAlias)?.code
-    if (!code) throw new UnknownModuleError(codeOrAlias, modules)
+    const picked = token.trim()
+    if (picked === '') continue
+    const code = isModuleSource(picked) ? normalizeSource(picked) : listedCode(picked, modules)
+    if (!code) throw new UnknownModuleError(picked, modules)
     if (!codes.includes(code)) codes.push(code)
   }
   return codes
+}
+
+/**
+ * @param {string} picked
+ * @param {ModuleDefinition[]} modules
+ * @returns {string | undefined}
+ */
+function listedCode(picked, modules) {
+  const [name, ref] = picked.split('#')
+  const module = findModule(modules, name)
+  if (!module) return undefined
+  return ref ? `${module.code}#${ref}` : module.code
 }
 
 /**

@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { isAbsolute, join, posix, resolve } from 'node:path'
+import { repoOf } from './modules.js'
 
 /** @typedef {{ source?: string, sourceUrl?: string, sourceType?: string, ref?: string, skillPath?: string }} LockEntry */
 
@@ -38,4 +39,18 @@ export function moduleSourceFromLock(entry, directory) {
   const appendable = github || entry.sourceType === 'local'
   const withFolder = appendable && folder !== '.' ? `${source.replace(/\/+$/, '')}/${folder}` : source
   return entry.ref ? `${withFolder}#${entry.ref}` : withFolder
+}
+
+/**
+ * The branch or tag a module in modules.yaml was installed from, when the lock entry of its
+ * record names one and comes from the module's own repository. Only the ref is taken: the folder
+ * stays the one modules.yaml gives, which survives a module moving inside its repository.
+ * @param {LockEntry | undefined} entry
+ * @param {string} source
+ * @returns {string | undefined}
+ */
+export function lockedRef(entry, source) {
+  if (!entry?.ref || source.includes('#')) return undefined
+  const github = !entry.sourceType || entry.sourceType === 'github'
+  return github && entry.source === repoOf(source) ? entry.ref : undefined
 }

@@ -65,6 +65,10 @@ The skills CLI decides. With one agent it copies the skills into that agent's fo
 
 `--modules` takes module codes: `method` (alias `bmm`), `toolsmith`, `founder` and `cis`. Without `--modules`, `--yes` installs `method` and `toolsmith`. The core tools module installs on every run. Each module installs whole, with one `npx skills add <owner/repo/folder> -s '*'` for its folder; a module already installed with nothing missing is skipped.
 
+### A branch or tag
+
+A code can carry a branch or tag: `-m core-tools#dev,method#dev` installs both from the `dev` branch, and `-m method#v7.0.0` pins a tag. A module picked this way is re-added even when it is already installed. Core tools install from the default branch unless you name them with a ref. `update` keeps each listed module on the branch or tag the project's `skills-lock.json` recorded for it; to move one back, install it with the ref you want, such as `-m method#main`.
+
 ### Your own modules
 
 `--modules` also takes the folder of a module that is not on the list: anything with a `/` is a source the skills CLI can install from, such as `acme/our-modules/skills/widgets`, `acme/our-modules/skills/widgets#dev`, a git URL or a local path (`./widgets`, made absolute against the folder you run from). It installs whole, like the listed modules, to the agents you pick: `npx bmad-method install -m method,acme/our-modules/skills/widgets`. The folder must hold the module's record and its skills; the `bmad` skill reads the record on its next `bmad setup`. `update` re-adds it from the source and ref the project's `skills-lock.json` recorded for its record, so a module installed with `npx skills add` updates the same way.
@@ -79,7 +83,7 @@ The summary names the project, the modules with their version and the coding age
 
 Three routes: ask the `bmad` skill, run `npx bmad-method update`, or run `npx skills update`.
 
-`npx bmad-method update` re-adds each installed module whole, one `npx skills add <owner/repo/folder> -s '*'` per module, to the agents whose folder in the project already holds BMad. It then prints the summary and any migrations for the version jump. A module that is not on the list, installed with `--modules <folder>` or `npx skills add`, is re-added from the source and ref the project's `skills-lock.json` recorded for its record. One it cannot place, such as a well-known skill, is named; `npx skills update` covers it, one skill and one clone at a time. A module re-added this way gets back any skill removed from it by hand.
+`npx bmad-method update` re-adds each installed module whole, one `npx skills add <owner/repo/folder> -s '*'` per module, to the agents whose folder in the project already holds BMad. A module installed from a branch or tag stays on it. It then prints the summary and any migrations for the version jump. A module that is not on the list, installed with `--modules <folder>` or `npx skills add`, is re-added from the source and ref the project's `skills-lock.json` recorded for its record. One it cannot place, such as a well-known skill, is named; `npx skills update` covers it, one skill and one clone at a time. A module re-added this way gets back any skill removed from it by hand.
 
 After adding or updating any skill by any route, ask the `bmad` skill to update. Only it reconciles what is installed.
 

@@ -1,9 +1,9 @@
 import { resolve } from 'node:path'
 import { inspectInstall, installedModuleCodes } from '../installed.js'
 import { message } from '../messages.js'
-import { findModule } from '../modules.js'
+import { findModule, sourceAtRef } from '../modules.js'
 import { runPreflight } from '../preflight.js'
-import { moduleSourceFromLock, readProjectLock } from '../project-lock.js'
+import { lockedRef, moduleSourceFromLock, readProjectLock } from '../project-lock.js'
 import { agentsToUpdate } from './agent-choice.js'
 import { applyCalls } from './apply.js'
 import { endRun } from './ending.js'
@@ -15,9 +15,10 @@ import { versionsByCode } from './install-plan.js'
 /** @typedef {import('./install-plan.js').InstallCall} InstallCall */
 
 /**
- * One call per installed module: a module in modules.yaml from its folder with `-s '*'`, any
- * other from the source and ref the project lock recorded for its record, with its own skills
- * named. `unplaced` names the modules with no source to re-add from.
+ * One call per installed module: a module in modules.yaml from its folder with `-s '*'`, on the
+ * branch or tag the project lock recorded for its record; any other from the source and ref the
+ * lock recorded, with its own skills named. `unplaced` names the modules with no source to
+ * re-add from.
  * @param {CommandDeps} deps
  * @param {string} directory
  * @param {string[]} codes
@@ -27,11 +28,14 @@ import { versionsByCode } from './install-plan.js'
 async function updateCalls(deps, directory, codes, installed) {
   const { modules } = deps
   const listed = modules.filter((module) => module.always || codes.some((code) => findModule(modules, code) === module))
+  const lock = await readProjectLock(directory)
   /** @type {InstallCall[]} */
-  const calls = listed.map((module) => ({ source: module.source, skills: ['*'], label: module.name }))
+  const calls = listed.map((module) => {
+    const ref = lockedRef(lock[module.record], module.source)
+    return { source: ref ? sourceAtRef(module.source, ref) : module.source, skills: ['*'], label: module.name }
+  })
   /** @type {string[]} */
   const unplaced = []
-  const lock = await readProjectLock(directory)
   for (const entry of installed?.modules ?? []) {
     if (findModule(modules, entry.module)) continue
     const source = moduleSourceFromLock(lock[entry.folder], directory)

@@ -11,6 +11,7 @@ import {
   defaultCodes,
   isModuleSource,
   normalizeSource,
+  sourceAtRef,
 } from '../src/modules.js'
 import { homedir } from 'node:os'
 
@@ -109,4 +110,15 @@ test('isModuleSource and normalizeSource tell a source from a code and make loca
   assert.equal(normalizeSource('../widgets', '/work/app'), '/work/widgets')
   assert.equal(normalizeSource('~/mods/widgets', '/work/app'), join(homedir(), 'mods', 'widgets'))
   assert.equal(normalizeSource('acme/mods/skills/widgets', '/work/app'), 'acme/mods/skills/widgets')
+})
+
+test('parseModulesFlag keeps a branch or tag on a code, with the alias resolved', async () => {
+  const modules = await loadModules()
+  assert.deepEqual(parseModulesFlag('core-tools#dev, bmm#v7.0.0,cis', modules), ['core-tools#dev', 'method#v7.0.0', 'cis'])
+  assert.throws(() => parseModulesFlag('nope#dev', modules), ModulesError)
+})
+
+test('sourceAtRef adds a ref and replaces one already there', () => {
+  assert.equal(sourceAtRef('acme/mods/skills/widgets', 'dev'), 'acme/mods/skills/widgets#dev')
+  assert.equal(sourceAtRef('acme/mods/skills/widgets#main', 'dev'), 'acme/mods/skills/widgets#dev')
 })

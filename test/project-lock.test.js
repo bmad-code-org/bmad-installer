@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { moduleSourceFromLock, readProjectLock } from '../src/project-lock.js'
+import { lockedRef, moduleSourceFromLock, readProjectLock } from '../src/project-lock.js'
 
 test('moduleSourceFromLock gives the folder above the record, on its source and ref', () => {
   const github = { source: 'acme/mods', sourceType: 'github', ref: 'dev', skillPath: 'skills/widgets/bmod-widgets/SKILL.md' }
@@ -28,4 +28,15 @@ test('readProjectLock reads the skills map and is empty without a lock', async (
   assert.deepEqual(await readProjectLock(dir), {})
   await writeFile(join(dir, 'skills-lock.json'), JSON.stringify({ version: 1, skills: { bmad: { source: 'a/b' } } }))
   assert.deepEqual(await readProjectLock(dir), { bmad: { source: 'a/b' } })
+})
+
+test('lockedRef gives the ref a listed module was installed from, only for its own repository', () => {
+  const source = 'bmad-code-org/BMAD-METHOD/skills/method'
+  const entry = { source: 'bmad-code-org/BMAD-METHOD', sourceType: 'github', ref: 'dev', skillPath: 'skills/bmod-method/SKILL.md' }
+  assert.equal(lockedRef(entry, source), 'dev')
+  assert.equal(lockedRef({ ...entry, ref: undefined }, source), undefined)
+  assert.equal(lockedRef({ ...entry, source: 'someone/fork' }, source), undefined)
+  assert.equal(lockedRef({ ...entry, sourceType: 'local' }, source), undefined)
+  assert.equal(lockedRef(entry, `${source}#main`), undefined, 'a ref already on the source wins')
+  assert.equal(lockedRef(undefined, source), undefined)
 })

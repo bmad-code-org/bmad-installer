@@ -38,7 +38,7 @@ export async function install(options, deps) {
       prompts.warn(message(messages, 'deprecatedModule', { module: module.name, reason: module.deprecated }))
     }
   }
-  const kept = modules.filter((module) => existing.codes.includes(module.code) && !chosen.includes(module))
+  const kept = modules.filter((module) => existing.codes.includes(module.code) && !chosen.some((picked) => picked.code === module.code))
   if (kept.length > 0) {
     prompts.warn(message(messages, 'modulesKept', { modules: kept.map((module) => module.name).join(', ') }))
   }

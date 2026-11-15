@@ -123,3 +123,24 @@ test('migrations compare the versions before and after the update', async () => 
   const listedMigrations = said.notes.find((note) => note.startsWith(messages.migrationsAvailable))
   assert.deepEqual(listedMigrations?.split('\n'), [messages.migrationsAvailable, 'Move v6 artifacts (method, 6 to 7)'])
 })
+
+test('a listed module stays on the branch the project lock recorded for its record', async (t) => {
+  const dir = await tempDir(t)
+  await writeFile(join(dir, 'skills-lock.json'), JSON.stringify({
+    version: 1,
+    skills: {
+      'bmod-method': { source: 'bmad-code-org/BMAD-METHOD', sourceType: 'github', ref: 'dev', skillPath: 'skills/method/bmod-method/SKILL.md' },
+      'bmod-core-tools': { source: 'bmad-code-org/BMAD-METHOD', sourceType: 'github', skillPath: 'skills/core-tools/bmod-core-tools/SKILL.md' },
+    },
+  }))
+  const { prompts } = fakePrompts()
+  const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad')]] })
+  const { scripts } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
+
+  await update(updateOptions({ directory: dir }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }))
+
+  assert.deepEqual(only(requests).map((request) => request.source), [
+    'bmad-code-org/BMAD-METHOD/skills/core-tools',
+    'bmad-code-org/BMAD-METHOD/skills/method#dev',
+  ])
+})

@@ -225,3 +225,21 @@ test('a module from a folder gets its migrations listed when the install crosses
 
   assert.ok(said.notes.some((note) => note.includes('Move widget files (widgets, 6 to 7)')), said.notes.join('\n---\n'))
 })
+
+test('--modules with code#ref installs that module from the branch, even when it is already installed', async (t) => {
+  const dir = await tempDir(t)
+  const installed = statusOf()
+  for (const entry of installed.modules) entry.absent_skills = []
+  const { prompts, said } = fakePrompts()
+  const { cli, requests } = fakeSkillsCli({ lists: [RECORDS.map(listed), RECORDS.map(listed)] })
+  const { scripts } = fakeBmadScripts({ statuses: [installed, installed] })
+
+  await install(
+    options({ directory: dir, yes: true, modules: 'method#dev' }),
+    makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }),
+  )
+
+  assert.deepEqual(only(requests).map((request) => request.source), ['bmad-code-org/BMAD-METHOD/skills/method#dev'])
+  assert.equal(said.warns.some((warning) => warning.includes('Still installed')), false)
+  assert.ok(said.plain.some((text) => text.includes('-m method#dev')))
+})

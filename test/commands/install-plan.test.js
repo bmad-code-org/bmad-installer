@@ -94,3 +94,17 @@ test('versionMajor reads the leading major version', () => {
   assert.equal(versionMajor(''), null)
   assert.equal(versionMajor('unknown'), null)
 })
+
+test('a code picked with a ref comes from that branch, is re-added even when installed, and repeats with its ref', () => {
+  const chosen = chosenModules(['core-tools#dev', 'method#dev', 'cis'], modules)
+  assert.deepEqual(chosen.map((module) => [module.code, module.source]), [
+    ['core-tools', 'bmad-code-org/BMAD-METHOD/skills/core-tools#dev'],
+    ['method', 'bmad-code-org/BMAD-METHOD/skills/method#dev'],
+    ['cis', 'bmad-code-org/bmad-module-creative-intelligence-suite'],
+  ])
+  const installed = statusOf()
+  for (const entry of installed.modules) entry.absent_skills = []
+  assert.deepEqual(moduleCalls(chosen, installed).map((call) => call.label), ['BMad Core Tools', 'BMad Method', 'BMad Creative Intelligence Suite'])
+  assert.deepEqual(moduleCalls(chosenModules(['method'], modules), installed), [])
+  assert.equal(repeatCommand(chosen, ['claude-code']), 'npx bmad-method install -m core-tools#dev,method#dev,cis -t claude-code -y')
+})
