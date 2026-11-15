@@ -1,5 +1,7 @@
+import { styleText } from 'node:util'
 import {
   autocompleteMultiselect,
+  box,
   cancel,
   confirm as confirmPrompt,
   intro,
@@ -14,6 +16,9 @@ import {
 } from '@clack/prompts'
 import { UNIVERSAL_AGENT } from './agents.js'
 import { message } from './messages.js'
+
+const WIDE_LOGO_COLUMNS = 101
+const NARROW_LOGO_COLUMNS = 48
 
 
 /** @typedef {import('./agents.js').Agent} Agent */
@@ -39,8 +44,28 @@ function ensure(value) {
  * @param {string} title
  */
 export function showIntro(messages, title) {
+  const columns = process.stdout.columns || 80
+  if (columns >= NARROW_LOGO_COLUMNS) showLogo(messages, columns)
   intro(title)
   log.message(message(messages, 'intro'))
+}
+
+/**
+ * @param {Record<string, any>} messages
+ * @param {number} columns
+ */
+function showLogo(messages, columns) {
+  const lines = message(messages, columns >= WIDE_LOGO_COLUMNS ? 'logoWide' : 'logoNarrow').split('\n')
+  const width = Math.max(...lines.map((line) => line.length))
+  // Padded to one width so the centred box keeps the letters aligned.
+  const logo = lines.map((line) => styleText('blue', line.padEnd(width))).join('\n')
+  box(`${logo}\n\n${styleText('dim', message(messages, 'credit'))}`, '', {
+    contentAlign: 'center',
+    width: 'auto',
+    rounded: true,
+    withGuide: false,
+    formatBorder: (text) => styleText('blue', text),
+  })
 }
 
 /**
