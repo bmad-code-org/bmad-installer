@@ -1,16 +1,27 @@
+# The v6 wordmark: logoWide from 101 columns, logoNarrow from 48, none below.
+logoWide: |-
+  ██████╗ ███╗   ███╗ █████╗ ██████╗     ███╗   ███╗███████╗████████╗██╗  ██╗ ██████╗ ██████╗ ™
+  ██╔══██╗████╗ ████║██╔══██╗██╔══██╗    ████╗ ████║██╔════╝╚══██╔══╝██║  ██║██╔═══██╗██╔══██╗
+  ██████╔╝██╔████╔██║███████║██║  ██║    ██╔████╔██║█████╗     ██║   ███████║██║   ██║██║  ██║
+  ██╔══██╗██║╚██╔╝██║██╔══██║██║  ██║    ██║╚██╔╝██║██╔══╝     ██║   ██╔══██║██║   ██║██║  ██║
+  ██████╔╝██║ ╚═╝ ██║██║  ██║██████╔╝    ██║ ╚═╝ ██║███████╗   ██║   ██║  ██║╚██████╔╝██████╔╝
+  ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═════╝     ╚═╝     ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚═════╝ 
+
+logoNarrow: |-
+  ██████╗ ███╗   ███╗ █████╗ ██████╗ ™
+  ██╔══██╗████╗ ████║██╔══██╗██╔══██╗
+  ██████╔╝██╔████╔██║███████║██║  ██║
+  ██╔══██╗██║╚██╔╝██║██╔══██║██║  ██║
+  ██████╔╝██║ ╚═╝ ██║██║  ██║██████╔╝
+  ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═════╝  
+
+credit: Build More, Architect Dreams · © BMad Code
+
+title: BMad Installer
+
 intro: |-
-  BMad Installer installs BMad modules as agent skills.
-  It is free and open source.
-  Installs run through the skills CLI (npx skills). You need uv installed.
-
-  Docs     https://docs.bmad-method.org
-  GitHub   https://github.com/bmad-code-org/BMAD-METHOD
-  Discord  https://discord.gg/gk8jAdXWmj
-  YouTube  https://www.youtube.com/@BMadCode
-  X        https://x.com/BMadCode
-
-  Support: star the repo, https://buymeacoffee.com/bmad
-  Contact: contact@bmadcode.com
+  Installs BMad modules as agent skills. Free and open source.
+  Docs: https://docs.bmad-method.org
 
 updateAvailable: |-
   You are using version {current} but {latest} is available.
@@ -22,8 +33,8 @@ nodeTooOld: |-
   Install Node 22, then run this again.
 
 nodeBelowSkillsFloor: |-
-  Node {version} is below the 22.20.0 the skills CLI asks for.
-  Installs usually still work. Upgrade Node if you hit errors.
+  Node {version} is below the 22.20.0 the skills CLI asks for,
+  which may be why this failed. Upgrade Node and try again.
 
 uvMissing: |-
   uv is not installed. The BMad scripts need it.
@@ -72,24 +83,31 @@ installedSuffixNoVersion: "(installed)"
 
 modulesPrompt: "Which modules do you want?"
 
-bundlesPrompt: "Which parts of {module} do you want?"
-
 deprecatedModule: "{module} is deprecated. {reason}"
 
-beforeSkillsPicker: |-
-  The skills CLI takes over for the first install.
-  Pick the coding agents to install to.
-  If it asks for a scope, keep Project.
-  If it asks for a method, keep Symlink.
-  Confirm, and this installer picks up again when it is done.
+modulesRequired: "Also installing {modules}: a module you picked needs it."
+
+modulesKept: |-
+  Still installed: {modules}. This installer never removes anything.
+  To remove a module, run npx skills remove with its skills.
+
+agentsPrompt: "Which coding agents should get the skills?"
+
+agentsPlaceholder: "Type to filter"
+
+
+
+unknownModules: |-
+  Unknown module: {codes}
+  Modules: {known}, or a folder such as owner/repo/path
+
+unknownTools: |-
+  Unknown coding agent: {ids}
+  List the ids with: npx bmad-method --list-tools
 
 firstInstallNotInProject: |-
-  The skills CLI did not install into {directory}.
-  Nothing was added to this project.
-  If you picked Global scope, the skills went to the global skills dir.
-  Run the installer again and keep the Project scope.
-
-bundleSkillUnknown: "Skipped skills that {module} no longer lists: {skills}"
+  The skills CLI did not install bmad into {directory}.
+  Run the installer again with --debug to see what it did.
 
 installingSpinner: "Installing {what}"
 
@@ -99,7 +117,12 @@ nothingToUpdate: "No BMad install here to update. Run npx bmad-method install fi
 
 nothingInstalled: "There is no BMad install here. Run npx bmad-method install first."
 
-updateSpinnerDone: "Update finished"
+updatingSpinner: "Updating {what}"
+updateUnreadInstall: |-
+  Could not read the install before updating, so only the modules this installer lists were updated.
+  Run npx bmad-method status, then npx skills update for any other module.
+
+updateNotListed: "Not updated, no source to update them from: {modules}. Run npx skills update for those."
 
 migrationsAvailable: "Migrations are available for this upgrade:"
 
@@ -111,7 +134,7 @@ reportCurrent: "Everything the modules ask for is in place."
 
 reportNotCurrent: "Not finished yet. Next: {next}"
 
-reportModule: "{name} {version}, {count} skills installed"
+reportModule: "{name} {version}, skills installed: {count}"
 
 reportAlsoAvailable: "  Also in {code}: {skills}"
 
@@ -119,36 +142,56 @@ reportMissingRecord: "  Missing module record. Install it with: {install}"
 
 reportUnmet: "  {skill} needs {requires} {minimum} ({state}). Install it with: {install}"
 
-reportPendingQuestions: "{count} setup questions are still unanswered."
+reportPendingQuestions: "Setup questions still unanswered: {count}"
 
 reportProblem: "Problem: {message}"
 
-reportLegacy: "Left over from an older install: {path}"
-
 reportFailure: "Failed to install {skill}: {error}"
 
-closing: |-
-  BMad is installed in:
-  {directory}
-  Open your coding agent in this directory.
+summaryTitle: "BMad is installed"
 
-  Ask it to run: bmad setup
-  Setup asks the configuration questions and finishes the install.
-  Configuration and customization are its job from now on.
+summaryTitleProblems: "BMad is installed, with problems"
 
-  Three ways to change this install later:
-    ask the bmad skill
-    npx bmad-method update
-    npx skills update
+summaryTitleUpdated: "BMad is updated"
 
-  npx skills remove removes skills. This installer never removes anything.
+summaryTitleUpdatedProblems: "BMad is updated, with problems"
 
-  Going direct with the skills CLI: a module is its bmod-<code> record
-  skill plus the skills it requires.
-  A partial install is one the bmad skill cannot see or run.
+summaryProject: "Project   {directory}"
 
-  After adding or updating any skill by any route,
-  ask the bmad skill to update. Only it reconciles what is installed.
+summaryModules: "Modules   {modules}"
+
+summaryModuleGroup: "{names} ({version})"
+
+summaryAgents: "Agents    {agents}"
+
+summaryNextSetup: |-
+  Next: open your coding agent in this project and ask it to run
+  bmad setup, which finishes the install. Then, if you are unsure
+  what BMad and your installed modules can do, ask the bmad skill
+  what to do next.
+
+summaryNextCurrent: |-
+  Next: if you are unsure what BMad and your installed modules can do,
+  ask the bmad skill in your coding agent what to do next.
+
+summaryNextOther: "Next: {next}"
+
+universalAgentName: "Shared .agents/skills folder"
+
+updateLater: "Update later:  npx bmad-method update"
+
+repeatInstall: |-
+  Same install without prompts:
+  {command}
+
+thanks: |-
+  Thanks for installing BMad.
+  Read the blog         https://blog.bmadcode.com
+  Star the repo         https://github.com/bmad-code-org/BMAD-METHOD
+  Join Discord          https://discord.gg/gk8jAdXWmj
+  Watch                 https://www.youtube.com/@BMadCode
+  Buy a coffee          https://buymeacoffee.com/bmad
+  Support and contact   https://bmadcode.com/#contact
 
 cancelled: "Cancelled. Anything already installed is still there."
 
@@ -167,7 +210,6 @@ droppedFlags:
   pin: "--pin is gone. Modules install from each repo's main branch."
   shims: "--shims is gone. Shims are no longer shipped."
   no-shims: "--no-shims is gone. Shims are no longer shipped."
-  list-tools: "--list-tools is gone. Tool ids are the skills CLI --agent ids; a wrong one lists the valid ones."
 
 droppedUninstall: |-
   This installer does not remove anything.

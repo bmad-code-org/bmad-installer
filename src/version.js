@@ -2,7 +2,10 @@ import { createRequire } from 'node:module'
 import { dirname } from 'node:path'
 
 const require = createRequire(import.meta.url)
-const packageJsonPath = require.resolve('../package.json')
+const packageJson = require('../package.json')
 
-export const packageRoot = dirname(packageJsonPath)
-export const version = require('../package.json').version
+export const packageRoot = dirname(require.resolve('../package.json'))
+/** @type {string} */
+export const packageName = packageJson.name
+/** @type {string} */
+export const version = packageJson.version

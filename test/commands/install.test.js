@@ -4,8 +4,10 @@ import { join } from 'node:path'
 import { install } from '../../src/commands/install.js'
 import {
   RECORDS,
+  detectWith,
   fakeBmadScripts,
   fakePrompts,
+  fakeRunner,
   fakeSkillsCli,
   listed,
   makeDeps,
@@ -17,6 +19,15 @@ import {
 } from '../helpers/command-fakes.js'
 
 /** @typedef {import('../../src/bmad-scripts.js').Migration} Migration */
+
+/**
+ * A project whose `folder` holds every module record.
+ * @param {string} dir
+ * @param {string} folder
+ */
+function heldBy(dir, folder) {
+  return detectWith(['bmod-core-tools', 'bmod-method', 'bmod-toolsmith', 'bmad-founder-agent-advisor'].map((record) => join(dir, folder, record)))
+}
 
 test('--yes takes the default modules and asks nothing', async (t) => {
   const dir = await tempDir(t)
@@ -31,10 +42,14 @@ test('--yes takes the default modules and asks nothing', async (t) => {
 
   assert.equal(code, 0)
   assert.deepEqual(asked, ['intro'])
-  const members = only(requests)[1]
-  assert.equal(members.agents, null)
-  for (const skill of ['bmad-prd', 'bmad-build', 'bmad-ticket', 'bmad-walkthrough', 'bmad-agent-dev', 'bmad-brainstorming']) {
-    assert.ok(members.skills.includes(skill), `missing ${skill}`)
+  assert.deepEqual(only(requests).map((request) => request.source), [
+    'bmad-code-org/BMAD-METHOD/skills/core-tools',
+    'bmad-code-org/BMAD-METHOD/skills/method',
+    'bmad-code-org/BMAD-METHOD/skills/toolsmith',
+  ])
+  for (const request of only(requests)) {
+    assert.deepEqual(request.skills, ['*'])
+    assert.deepEqual(request.agents, ['universal'])
   }
 })
 
@@ -43,11 +58,9 @@ test('a skipped skill is reported and turns the run into an exit 1', async (t) =
   const { prompts, said } = fakePrompts()
   const { cli } = fakeSkillsCli({
     lists: [[], RECORDS.map(listed)],
-    add: (request) => request.skills.map((/** @type {string} */ name) => (
-      name === 'bmad-prd'
-        ? { name, status: 'skipped', reason: 'No matching skill found in source' }
-        : { name, status: 'installed' }
-    )),
+    add: (request) => request.source.endsWith('/method')
+      ? [{ name: 'bmad-build', status: 'installed' }, { name: 'bmad-agent-pm', status: 'skipped', reason: 'No matching skill found in source' }]
+      : [{ name: 'bmad', status: 'installed' }],
   })
   const { scripts } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
 
@@ -57,26 +70,27 @@ test('a skipped skill is reported and turns the run into an exit 1', async (t) =
   )
 
   assert.equal(code, 1)
-  assert.ok(said.notes.some((note) => note.includes('Failed to install bmad-prd: No matching skill found in source')))
+  assert.ok(said.warns.some((warning) => warning.includes('Failed to install bmad-agent-pm: No matching skill found in source')))
+  assert.ok(said.notes.at(-1)?.startsWith(messages.summaryTitleProblems))
 })
 
-test('the run stops when the first interactive install landed somewhere else', async (t) => {
+test('the run stops when bmad did not land in the project', async (t) => {
   const dir = await tempDir(t)
   const { prompts, said } = fakePrompts()
   const { cli, requests } = fakeSkillsCli({ lists: [[], []] })
   const { scripts } = fakeBmadScripts({ statuses: [statusOf()] })
 
   const code = await install(
-    options({ directory: dir }),
-    makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, env: { XDG_STATE_HOME: join(dir, 'state') } }),
+    options({ directory: dir, yes: true }),
+    makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }),
   )
 
   assert.equal(code, 1)
   assert.deepEqual(said.fails, [messages.firstInstallNotInProject.replace('{directory}', dir)])
-  assert.equal(only(requests).length, 0)
+  assert.equal(only(requests).length, 3)
 })
 
-test('a record call that failed is explained instead of blamed on the scope', async (t) => {
+test('a record call that failed is explained', async (t) => {
   const dir = await tempDir(t)
   const { prompts, said } = fakePrompts()
   const { cli } = fakeSkillsCli({
@@ -93,25 +107,22 @@ test('a record call that failed is explained instead of blamed on the scope', as
   assert.equal(code, 1)
   assert.equal(said.fails.length, 1)
   assert.ok(said.fails[0].includes('Failed to clone repository'))
-  assert.equal(said.fails[0].includes('Project scope'), false)
 })
 
-test('a bundle skill the record no longer lists is named and skipped', async (t) => {
+test('a failure on a Node below the skills CLI floor says so, a clean run never does', async (t) => {
   const dir = await tempDir(t)
-  const thinned = statusOf()
-  thinned.modules[1].absent_skills = thinned.modules[1].absent_skills.filter((name) => name !== 'bmad-prd')
-  const { prompts, said } = fakePrompts()
-  const { cli, requests } = fakeSkillsCli({ lists: [[], RECORDS.map(listed)] })
-  const { scripts } = fakeBmadScripts({ statuses: [thinned, thinned] })
+  const hint = messages.nodeBelowSkillsFloor.replace('{version}', '22.13.0')
+  const failing = fakePrompts()
+  const { cli } = fakeSkillsCli({ lists: [[], []], add: () => [{ status: 'failed', error: 'Failed to clone repository' }] })
+  const { scripts } = fakeBmadScripts({ statuses: [statusOf()] })
+  await install(options({ directory: dir, yes: true }), { ...makeDeps({ prompts: failing.prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }), node: '22.13.0' })
+  assert.ok(failing.said.fails[0].endsWith(hint), failing.said.fails[0])
 
-  const code = await install(
-    options({ directory: dir, tools: 'claude-code' }),
-    makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }),
-  )
-
-  assert.equal(code, 0)
-  assert.ok(said.warns.some((warning) => warning === 'Skipped skills that BMad Method no longer lists: bmad-prd'))
-  assert.equal(only(requests)[1].skills.includes('bmad-prd'), false)
+  const clean = fakePrompts()
+  const ok = fakeSkillsCli({ lists: [[], RECORDS.map(listed)] })
+  const okScripts = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
+  await install(options({ directory: dir, yes: true }), { ...makeDeps({ prompts: clean.prompts, skillsCli: ok.cli, bmadScripts: okScripts.scripts, cwd: dir }), node: '22.13.0' })
+  assert.equal([...clean.said.warns, ...clean.said.fails].some((text) => text.includes('22.13.0')), false)
 })
 
 test('migrations are listed only for the major jump this run made', async (t) => {
@@ -154,15 +165,144 @@ test('choosing quick update on an existing install runs the update flow', async 
   const { prompts, said, asked } = fakePrompts({ existing: 'update' })
   const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad'), listed('bmod-method')]] })
   const { scripts } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
+  const { runner, calls } = fakeRunner()
 
   const code = await install(
     options({ directory: dir }),
+    makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, runner }),
+  )
+
+  assert.equal(code, 0)
+  assert.equal(calls.filter((argv) => argv.join(' ') === 'uv --version').length, 1, 'preflight ran twice')
+  assert.ok(asked.includes('existing'))
+  assert.equal(asked.includes('modules'), false)
+  assert.deepEqual(only(requests).map((request) => request.source), [
+    'bmad-code-org/BMAD-METHOD/skills/core-tools',
+    'bmad-code-org/BMAD-METHOD/skills/method',
+  ])
+  assert.ok(said.notes.at(-1)?.startsWith(messages.summaryTitleUpdated))
+})
+
+test('unticking an installed module keeps it and says so', async (t) => {
+  const dir = await tempDir(t)
+  const { prompts, said } = fakePrompts({ modules: ['founder'] })
+  const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad'), listed('bmod-core-tools'), listed('bmod-method')], RECORDS.map(listed)] })
+  const installed = statusOf()
+  installed.modules.forEach((entry) => { entry.absent_skills = [] })
+  const { scripts } = fakeBmadScripts({ statuses: [installed, installed, installed] })
+
+  await install(options({ directory: dir }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, detect: heldBy(dir, '.claude/skills') }))
+
+  assert.ok(said.warns.includes(messages.modulesKept.replace('{modules}', 'BMad Method')), said.warns.join('\n'))
+  assert.deepEqual(only(requests).map((request) => request.source), ['bmad-code-org/BMAD-METHOD/skills/founder'])
+})
+
+test('--modules with a folder installs that module whole next to the listed ones', async (t) => {
+  const dir = await tempDir(t)
+  const { prompts } = fakePrompts()
+  const { cli, requests } = fakeSkillsCli({ lists: [[], RECORDS.map(listed)] })
+  const { scripts } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
+
+  const code = await install(
+    options({ directory: dir, yes: true, modules: 'method,acme/mods/skills/widgets' }),
     makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }),
   )
 
   assert.equal(code, 0)
-  assert.ok(asked.includes('existing'))
-  assert.equal(asked.includes('modules'), false)
-  assert.equal(only(requests, 'update').length, 1)
-  assert.deepEqual(said.says.at(-1), messages.updateSpinnerDone)
+  assert.deepEqual(only(requests).map((request) => [request.source, request.skills]), [
+    ['bmad-code-org/BMAD-METHOD/skills/core-tools', ['*']],
+    ['bmad-code-org/BMAD-METHOD/skills/method', ['*']],
+    ['acme/mods/skills/widgets', ['*']],
+  ])
+})
+
+test('a module from a folder gets its migrations listed when the install crosses a major version', async (t) => {
+  const dir = await tempDir(t)
+  const before = statusOf()
+  before.modules.push({ ...before.modules[1], module: 'widgets', folder: 'bmod-widgets', version: '6.2.0' })
+  const after = structuredClone(before)
+  after.modules[2].version = '7.0.0'
+  const { prompts, said } = fakePrompts()
+  const { cli } = fakeSkillsCli({ lists: [[listed('bmad')], RECORDS.map(listed)] })
+  const { scripts } = fakeBmadScripts({
+    statuses: [before, after],
+    migrations: [{ module: 'widgets', path: 'w.toml', file: '/p/w.toml', from: '6', to: '7', title: 'Move widget files' }],
+  })
+
+  await install(
+    options({ directory: dir, yes: true, modules: 'acme/mods/skills/widgets' }),
+    makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }),
+  )
+
+  assert.ok(said.notes.some((note) => note.includes('Move widget files (widgets, 6 to 7)')), said.notes.join('\n---\n'))
+})
+
+test('--modules with code#ref installs that module from the branch, even when it is already installed', async (t) => {
+  const dir = await tempDir(t)
+  const installed = statusOf()
+  for (const entry of installed.modules) entry.absent_skills = []
+  const { prompts, said } = fakePrompts()
+  const { cli, requests } = fakeSkillsCli({ lists: [RECORDS.map(listed), RECORDS.map(listed)] })
+  const { scripts } = fakeBmadScripts({ statuses: [installed, installed] })
+
+  await install(
+    options({ directory: dir, yes: true, modules: 'method#dev', tools: 'claude-code' }),
+    makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, detect: heldBy(dir, '.claude/skills') }),
+  )
+
+  assert.deepEqual(only(requests).map((request) => request.source), ['bmad-code-org/BMAD-METHOD/skills/method#dev'])
+  assert.equal(said.warns.some((warning) => warning.includes('Still installed')), false)
+  assert.ok(said.plain.some((text) => text.includes('-m method#dev')))
+})
+
+test('picking a module that needs another installs both and says so', async (t) => {
+  const dir = await tempDir(t)
+  const { prompts, said } = fakePrompts()
+  const { cli, requests } = fakeSkillsCli({ lists: [[], RECORDS.map(listed)] })
+  const { scripts } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
+
+  await install(options({ directory: dir, yes: true, modules: 'loop' }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }))
+
+  assert.deepEqual(only(requests).map((request) => request.source), [
+    'bmad-code-org/BMAD-METHOD/skills/core-tools',
+    'bmad-code-org/BMAD-METHOD/skills/method',
+    'bmad-code-org/bmad-loop/skills',
+  ])
+  assert.ok(said.says.includes(messages.modulesRequired.replace('{modules}', 'BMad Method')))
+})
+
+test('a required module already installed is not announced', async (t) => {
+  const dir = await tempDir(t)
+  const { prompts, said } = fakePrompts()
+  const { cli } = fakeSkillsCli({ lists: [RECORDS.map(listed), RECORDS.map(listed)] })
+  const { scripts } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
+
+  await install(options({ directory: dir, yes: true, modules: 'bmad-loop' }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }))
+
+  assert.equal(said.says.some((line) => line.startsWith('Also installing')), false)
+})
+
+test('a module complete for one agent is still added for a newly picked agent', async (t) => {
+  const dir = await tempDir(t)
+  const installed = statusOf()
+  for (const entry of installed.modules) entry.absent_skills = []
+  const { prompts } = fakePrompts()
+  const { cli, requests } = fakeSkillsCli({ lists: [RECORDS.map(listed), RECORDS.map(listed)] })
+  const { scripts } = fakeBmadScripts({ statuses: [installed, installed] })
+
+  await install(
+    options({ directory: dir, yes: true, modules: 'method', tools: 'codex' }),
+    makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, detect: heldBy(dir, '.claude/skills') }),
+  )
+  assert.deepEqual(only(requests).map((request) => [request.source, request.agents]), [
+    ['bmad-code-org/BMAD-METHOD/skills/core-tools', ['codex']],
+    ['bmad-code-org/BMAD-METHOD/skills/method', ['codex']],
+  ])
+
+  const again = fakeSkillsCli({ lists: [RECORDS.map(listed), RECORDS.map(listed)] })
+  await install(
+    options({ directory: dir, yes: true, modules: 'method', tools: 'claude-code' }),
+    makeDeps({ prompts, skillsCli: again.cli, bmadScripts: fakeBmadScripts({ statuses: [installed, installed] }).scripts, cwd: dir, detect: heldBy(dir, '.claude/skills') }),
+  )
+  assert.deepEqual(only(again.requests), [], 'the same agent again adds nothing')
 })

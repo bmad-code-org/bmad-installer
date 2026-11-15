@@ -1,15 +1,16 @@
 import { parseArgs } from 'node:util'
-import { createBmadScripts } from './bmad-scripts.js'
+import { AgentsError, loadAgents, parseToolsFlag } from './agents.js'
+import { BmadScriptsError, createBmadScripts } from './bmad-scripts.js'
 import { install } from './commands/install.js'
 import { status } from './commands/status.js'
 import { update } from './commands/update.js'
 import { MessagesError, loadMessages, message } from './messages.js'
-import { ModulesError, loadModules } from './modules.js'
+import { ModulesError, UnknownModuleError, loadModules, parseModulesFlag } from './modules.js'
 import { PreflightError } from './preflight.js'
 import * as prompts from './prompts.js'
 import { createRunner } from './run.js'
 import { createSkillsCli } from './skills-cli.js'
-import { version } from './version.js'
+import { packageName, version } from './version.js'
 
 /** @typedef {{ command: 'install' | 'update' | 'status', directory?: string, modules?: string, tools?: string, yes: boolean, telemetry: boolean, copy: boolean, debug: boolean }} CliOptions */
 /** @typedef {{ stdout: NodeJS.WriteStream, stderr: NodeJS.WriteStream, env: NodeJS.ProcessEnv, cwd: string }} Io */
@@ -21,6 +22,7 @@ const OPTIONS = /** @type {const} */ ({
   yes: { type: 'boolean', short: 'y' },
   action: { type: 'string' },
   copy: { type: 'boolean' },
+  'list-tools': { type: 'boolean' },
   debug: { type: 'boolean' },
   help: { type: 'boolean', short: 'h' },
   version: { type: 'boolean', short: 'v' },
@@ -29,17 +31,16 @@ const OPTIONS = /** @type {const} */ ({
 const DROPPED_FLAGS = new Set([
   'custom-source', 'set', 'list-options', 'user-name', 'communication-language',
   'document-output-language', 'output-folder', 'channel', 'all-stable', 'all-next',
-  'next', 'pin', 'shims', 'no-shims', 'list-tools',
+  'next', 'pin', 'shims', 'no-shims',
 ])
 const KNOWN_FLAGS = new Set([...Object.keys(OPTIONS), 'no-telemetry'])
 const COMMANDS = new Set(['install', 'update', 'status'])
 /** @type {Record<string, 'install' | 'update'>} */
 const ACTIONS = { install: 'install', update: 'update', 'quick-update': 'update' }
 const DROPPED_COMMAND = 'uninstall'
-const INSTALLER_NAME = 'bmad-method'
-const HELP_HINT = 'Run bmad-method --help for the list of flags.'
+const HELP_HINT = `Run ${packageName} --help for the list of flags.`
 
-const HELP = `bmad-method [install|update|status] [flags]
+const HELP = `${packageName} [install|update|status] [flags]
 
 Commands
   install                   Install BMad modules into a project (the default)
@@ -48,8 +49,9 @@ Commands
 
 Flags
   -d, --directory <path>    Project directory, default the current one
-  -m, --modules <spec>      Modules to install, e.g. method:planning+build,cis
-  -t, --tools <ids>         Comma-separated skills CLI agent ids to install to
+  -m, --modules <codes>     Modules to install, e.g. method,cis, method#dev or acme/repo/folder
+  -t, --tools <ids>         Comma-separated coding agent ids to install to
+      --list-tools          List the coding agent ids --tools takes
   -y, --yes                 Take the defaults and ask nothing
       --action <name>       install, update or quick-update, for 6.12 scripts
       --no-telemetry        Turn off skills CLI telemetry and the skills.sh install counts
@@ -65,6 +67,16 @@ export class UsageError extends Error {
 /** @returns {string} */
 export function helpText() {
   return HELP
+}
+
+/**
+ * @param {import('./agents.js').Agent[]} agents
+ * @returns {string}
+ */
+export function toolsText(agents) {
+  const width = Math.max(...agents.map((agent) => agent.id.length)) + 2
+  const nameWidth = Math.max(...agents.map((agent) => agent.name.length)) + 2
+  return agents.map((agent) => `${agent.id.padEnd(width)}${agent.name.padEnd(nameWidth)}${agent.skillsDir}`).join('\n')
 }
 
 /**
@@ -111,7 +123,7 @@ function readCommand(values, positionals) {
  * explains itself instead of failing on a stray positional.
  * @param {string[]} argv
  * @param {Record<string, any>} messages
- * @returns {{ kind: 'run', options: CliOptions } | { kind: 'help' } | { kind: 'version' } | { kind: 'dropped', text: string }}
+ * @returns {{ kind: 'run', options: CliOptions } | { kind: 'help' } | { kind: 'version' } | { kind: 'listTools' } | { kind: 'dropped', text: string }}
  */
 export function parseCli(argv, messages) {
   const parsed = parseArgs({ args: argv, options: OPTIONS, allowPositionals: true, strict: false, tokens: true })
@@ -131,6 +143,7 @@ export function parseCli(argv, messages) {
 
   if (flagGiven(flags, 'help')) return { kind: 'help' }
   if (flagGiven(flags, 'version')) return { kind: 'version' }
+  if (flagGiven(flags, 'list-tools')) return { kind: 'listTools' }
 
   return {
     kind: 'run',
@@ -153,7 +166,7 @@ export function parseCli(argv, messages) {
  * @param {{ debug: boolean, messages: Record<string, any> | null }} context
  * @returns {number}
  */
-function reportError(err, io, context) {
+export function reportError(err, io, context) {
   if (err instanceof prompts.Cancelled && context.messages) {
     prompts.fail(message(context.messages, 'cancelled'))
     return 1
@@ -165,6 +178,18 @@ function reportError(err, io, context) {
   if (err instanceof UsageError) {
     io.stderr.write(`${err.message}\n${HELP_HINT}\n`)
     return 2
+  }
+  if (err instanceof UnknownModuleError && context.messages) {
+    io.stderr.write(`${message(context.messages, 'unknownModules', { codes: err.code, known: err.known })}\n`)
+    return 2
+  }
+  if (err instanceof AgentsError && context.messages) {
+    io.stderr.write(`${message(context.messages, 'unknownTools', { ids: err.message })}\n`)
+    return 2
+  }
+  if (err instanceof BmadScriptsError) {
+    io.stderr.write(`${[err.message, err.stderr.trim()].filter(Boolean).join('\n')}\n`)
+    return 1
   }
   if (err instanceof MessagesError || err instanceof ModulesError) {
     io.stderr.write(`${err.message}\n`)
@@ -197,6 +222,10 @@ export async function main(argv, io) {
       out.stdout.write(`${version}\n`)
       return 0
     }
+    if (parsed.kind === 'listTools') {
+      out.stdout.write(`${toolsText(await loadAgents())}\n`)
+      return 0
+    }
     if (parsed.kind === 'dropped') {
       out.stderr.write(`${parsed.text}\n`)
       return 2
@@ -205,6 +234,9 @@ export async function main(argv, io) {
     const options = parsed.options
     debug = options.debug
     const modules = await loadModules()
+    const agents = await loadAgents()
+    if (options.tools) parseToolsFlag(options.tools, agents)
+    if (options.modules) parseModulesFlag(options.modules, modules)
     const runner = createRunner({ debug, log: (line) => out.stderr.write(`${line}\n`) })
     const deps = {
       runner,
@@ -213,11 +245,12 @@ export async function main(argv, io) {
         env: out.env,
         telemetry: options.telemetry,
         copy: options.copy,
-        metadata: { installer: INSTALLER_NAME, version },
+        metadata: { installer: packageName, version },
       }),
       bmadScripts: createBmadScripts({ runner }),
       messages,
       modules,
+      agents,
       prompts,
       env: out.env,
       cwd: out.cwd,

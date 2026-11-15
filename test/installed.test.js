@@ -5,11 +5,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   BMAD_SKILL,
-  RECORD_PREFIX,
-  hasSkills,
   inspectInstall,
-  moduleCodeFromRecord,
+  installedModuleCodes,
 } from '../src/installed.js'
+import { loadModules } from '../src/modules.js'
 
 /** @typedef {import('../src/skills-cli.js').ListedSkill} ListedSkill */
 
@@ -40,7 +39,7 @@ async function tempDir() {
   return await mkdtemp(join(tmpdir(), 'bmad-installed-'))
 }
 
-test('inspectInstall finds the bmad skill directory and module codes', async () => {
+test('inspectInstall finds the bmad skill directory', async () => {
   const dir = await tempDir()
   const skillsCli = fakeSkillsCli([
     listed(BMAD_SKILL, join(dir, '.agents', 'skills', 'bmad')),
@@ -52,7 +51,6 @@ test('inspectInstall finds the bmad skill directory and module codes', async () 
   const state = await inspectInstall(dir, skillsCli)
 
   assert.equal(state.bmadSkillDir, join(dir, '.agents', 'skills', 'bmad'))
-  assert.deepEqual(state.moduleCodes, ['core-tools', 'method'])
   assert.equal(state.skills.length, 4)
   assert.equal(state.legacyManifest, false)
   assert.deepEqual(skillsCli.calls, [{ cwd: dir }])
@@ -65,7 +63,6 @@ test('inspectInstall reports no bmad skill when it is absent', async () => {
   const state = await inspectInstall(dir, fakeSkillsCli([listed('bmod-cis', join(dir, 'bmod-cis'))]))
 
   assert.equal(state.bmadSkillDir, null)
-  assert.deepEqual(state.moduleCodes, ['cis'])
 
   await rm(dir, { recursive: true, force: true })
 })
@@ -79,30 +76,19 @@ test('inspectInstall detects a legacy manifest', async () => {
 
   assert.equal(state.legacyManifest, true)
   assert.deepEqual(state.skills, [])
-  assert.deepEqual(state.moduleCodes, [])
 
   await rm(dir, { recursive: true, force: true })
 })
 
-test('moduleCodeFromRecord only accepts prefixed names with a code', () => {
-  assert.equal(RECORD_PREFIX, 'bmod-')
-  assert.equal(moduleCodeFromRecord('bmod-method'), 'method')
-  assert.equal(moduleCodeFromRecord('bmod-core-tools'), 'core-tools')
-  assert.equal(moduleCodeFromRecord('bmod-'), null)
-  assert.equal(moduleCodeFromRecord('bmad'), null)
-  assert.equal(moduleCodeFromRecord('bmad-prd'), null)
+test('installedModuleCodes matches installed skills against each module record', async () => {
+  const modules = await loadModules()
+  /** @param {string[]} names */
+  const stateOf = (names) => ({ skills: names.map((name) => listed(name, `/s/${name}`)), bmadSkillDir: null, legacyManifest: false })
+
+  assert.deepEqual(installedModuleCodes(stateOf(['bmad', 'bmod-core-tools', 'bmod-cis', 'bmod-other']), modules), ['core-tools', 'cis'])
+  assert.deepEqual(installedModuleCodes(stateOf(['bmad', 'bmad-agent-pm']), modules), [])
+
+  const solo = [{ code: 'solo', name: 'Solo', description: 'd', source: 'o/r', record: 'bmad-solo' }]
+  assert.deepEqual(installedModuleCodes(stateOf(['bmad-solo']), solo), ['solo'])
 })
 
-test('hasSkills checks every requested name', () => {
-  /** @type {import('../src/installed.js').InstalledState} */
-  const state = {
-    skills: [listed('bmad', '/s/bmad'), listed('bmod-method', '/s/bmod-method')],
-    bmadSkillDir: '/s/bmad',
-    moduleCodes: ['method'],
-    legacyManifest: false,
-  }
-
-  assert.equal(hasSkills(state, ['bmad', 'bmod-method']), true)
-  assert.equal(hasSkills(state, []), true)
-  assert.equal(hasSkills(state, ['bmad', 'bmad-prd']), false)
-})

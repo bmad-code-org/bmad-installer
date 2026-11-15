@@ -1,8 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { resolve } from 'node:path'
+import { writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { update } from '../../src/commands/update.js'
 import {
+  HOME,
+  detectWith,
   fakeBmadScripts,
   fakePrompts,
   fakeSkillsCli,
@@ -12,6 +15,7 @@ import {
   only,
   options,
   statusOf,
+  tempDir,
 } from '../helpers/command-fakes.js'
 
 /** @param {Partial<import('../../src/cli.js').CliOptions>} [patch] */
@@ -28,38 +32,75 @@ test('nothing to update without the bmad skill', async () => {
 
   assert.equal(code, 1)
   assert.deepEqual(said.fails, [messages.nothingToUpdate])
-  assert.equal(only(requests, 'update').length, 0)
+  assert.equal(only(requests).length, 0)
 })
 
-test('the update runs the CLI, then reports and closes', async () => {
+test('the update re-adds each installed module whole to the agents holding bmad, then reports and closes', async (t) => {
+  const dir = await tempDir(t)
   const { prompts, said } = fakePrompts()
   const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad'), listed('bmod-method')]] })
   const { scripts, seen } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
+  const detect = detectWith([join(HOME, '.grok'), join(dir, '.claude', 'skills', 'bmad'), join(dir, '.agents', 'skills', 'bmad')])
 
-  const code = await update(
-    updateOptions({ directory: '/project' }),
-    makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts }),
-  )
+  const code = await update(updateOptions({ directory: dir }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, detect }))
 
   assert.equal(code, 0)
-  assert.deepEqual(only(requests, 'update'), [{ kind: 'update', cwd: resolve('/project') }])
+  assert.deepEqual(only(requests).map((request) => [request.source, request.skills, request.agents]), [
+    ['bmad-code-org/BMAD-METHOD/skills/core-tools', ['*'], ['universal', 'claude-code']],
+    ['bmad-code-org/BMAD-METHOD/skills/method', ['*'], ['universal', 'claude-code']],
+  ])
   assert.deepEqual(seen, ['/project/.agents/skills/bmad', '/project/.agents/skills/bmad'])
-  assert.deepEqual(said.says, [messages.updateSpinnerDone])
-  assert.ok(said.notes.some((note) => note.startsWith(messages.reportTitle)))
-  assert.ok(said.notes.some((note) => note.includes('ask the `bmad` skill what to do next')))
-  assert.ok(said.notes.at(-1)?.includes('bmad setup'))
+  const summary = said.notes.at(-1) ?? ''
+  assert.ok(summary.startsWith(messages.summaryTitleUpdated), summary)
+  assert.ok(summary.includes('bmad setup'))
+  assert.equal(summary.includes('Agents'), false, 'update shows no agents line')
+  assert.equal(said.plain.some((text) => text.includes('npx bmad-method update')), false)
+  assert.ok(said.plain.at(-1)?.startsWith('Thanks for installing BMad.'))
   assert.deepEqual(said.finish, [''])
 })
 
-test('a failing skills CLI still reports and exits 1', async () => {
+test('a single-agent install updates into that agent only', async (t) => {
+  const dir = await tempDir(t)
+  const { prompts } = fakePrompts()
+  const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad')]] })
+  const { scripts } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
+
+  await update(updateOptions({ directory: dir }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, detect: detectWith([join(dir, '.augment', 'skills', 'bmad')]) }))
+
+  for (const request of only(requests)) assert.deepEqual(request.agents, ['augment'])
+})
+
+test('a failed module is reported and exits 1', async () => {
   const { prompts, said } = fakePrompts()
-  const { cli } = fakeSkillsCli({ lists: [[listed('bmad')]], updateCode: 1 })
+  const { cli } = fakeSkillsCli({ lists: [[listed('bmad')]], add: () => [{ status: 'failed', error: 'Failed to clone repository' }] })
   const { scripts } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
 
   const code = await update(updateOptions(), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts }))
 
   assert.equal(code, 1)
-  assert.ok(said.notes.some((note) => note.startsWith(messages.reportTitle)))
+  assert.ok(said.warns.some((warning) => warning.includes('Failed to clone repository')))
+  assert.ok(said.notes.some((note) => note.startsWith(messages.summaryTitleUpdatedProblems)))
+})
+
+test('a module not on the list is re-added from the source its record came from, its own skills named', async (t) => {
+  const dir = await tempDir(t)
+  const report = statusOf()
+  report.modules.push({ ...report.modules[1], module: 'widgets', folder: 'bmod-widgets', skills: ['acme-widget'], absent_skills: ['acme-gadget'] })
+  report.modules.push({ ...report.modules[1], module: 'loose', folder: 'bmod-loose', skills: [], absent_skills: [] })
+  await writeFile(join(dir, 'skills-lock.json'), JSON.stringify({
+    version: 1,
+    skills: { 'bmod-widgets': { source: 'acme/mods', sourceType: 'github', ref: 'dev', skillPath: 'skills/widgets/bmod-widgets/SKILL.md' } },
+  }))
+  const { prompts, said } = fakePrompts()
+  const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad')]] })
+  const { scripts } = fakeBmadScripts({ statuses: [report, report] })
+
+  await update(updateOptions({ directory: dir }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }))
+
+  assert.deepEqual(only(requests).at(-1)?.source, 'acme/mods/skills/widgets#dev')
+  assert.deepEqual(only(requests).at(-1)?.skills, ['bmod-widgets', 'acme-widget', 'acme-gadget'])
+  assert.equal(only(requests).length, 3)
+  assert.ok(said.says.includes(messages.updateNotListed.replace('{modules}', 'loose')))
 })
 
 test('migrations compare the versions before and after the update', async () => {
@@ -81,4 +122,47 @@ test('migrations compare the versions before and after the update', async () => 
   assert.equal(code, 0)
   const listedMigrations = said.notes.find((note) => note.startsWith(messages.migrationsAvailable))
   assert.deepEqual(listedMigrations?.split('\n'), [messages.migrationsAvailable, 'Move v6 artifacts (method, 6 to 7)'])
+})
+
+test('a listed module stays on the branch the project lock recorded for its record', async (t) => {
+  const dir = await tempDir(t)
+  await writeFile(join(dir, 'skills-lock.json'), JSON.stringify({
+    version: 1,
+    skills: {
+      'bmod-method': { source: 'bmad-code-org/BMAD-METHOD', sourceType: 'github', ref: 'dev', skillPath: 'skills/method/bmod-method/SKILL.md' },
+      'bmod-core-tools': { source: 'bmad-code-org/BMAD-METHOD', sourceType: 'github', skillPath: 'skills/core-tools/bmod-core-tools/SKILL.md' },
+    },
+  }))
+  const { prompts } = fakePrompts()
+  const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad')]] })
+  const { scripts } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
+
+  await update(updateOptions({ directory: dir }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }))
+
+  assert.deepEqual(only(requests).map((request) => request.source), [
+    'bmad-code-org/BMAD-METHOD/skills/core-tools',
+    'bmad-code-org/BMAD-METHOD/skills/method#dev',
+  ])
+})
+
+test('an update that could not read the install first says so and exits 1', async () => {
+  const { prompts, said } = fakePrompts()
+  const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad'), listed('bmod-method')]] })
+  let calls = 0
+  const scripts = /** @type {any} */ ({
+    async status() {
+      calls += 1
+      if (calls === 1) throw new Error('setup.py --status exited with 1')
+      return statusOf()
+    },
+    async migrations() {
+      return []
+    },
+  })
+
+  const code = await update(updateOptions(), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts }))
+
+  assert.equal(code, 1)
+  assert.ok(only(requests).length > 0, 'the listed modules still update')
+  assert.ok(said.warns.includes(messages.updateUnreadInstall))
 })

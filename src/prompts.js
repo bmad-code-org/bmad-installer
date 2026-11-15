@@ -1,4 +1,7 @@
+import { styleText } from 'node:util'
 import {
+  autocompleteMultiselect,
+  box,
   cancel,
   confirm as confirmPrompt,
   intro,
@@ -11,8 +14,14 @@ import {
   spinner,
   text,
 } from '@clack/prompts'
+import { UNIVERSAL_AGENT } from './agents.js'
 import { message } from './messages.js'
+import { installedLabel } from './report.js'
 
+const WIDE_LOGO_COLUMNS = 101
+const NARROW_LOGO_COLUMNS = 48
+
+/** @typedef {import('./agents.js').Agent} Agent */
 /** @typedef {import('./modules.js').ModuleDefinition} ModuleDefinition */
 /** @typedef {{ options: { value: string, label: string, hint: string }[], initialValues: string[] }} Picker */
 
@@ -30,13 +39,30 @@ function ensure(value) {
   return /** @type {Exclude<T, symbol>} */ (/** @type {unknown} */ (value))
 }
 
+/** @param {Record<string, any>} messages */
+export function showIntro(messages) {
+  const columns = process.stdout.columns || 80
+  if (columns >= NARROW_LOGO_COLUMNS) showLogo(messages, columns)
+  intro(message(messages, 'title'))
+  log.message(message(messages, 'intro'))
+}
+
 /**
  * @param {Record<string, any>} messages
- * @param {string} title
+ * @param {number} columns
  */
-export function showIntro(messages, title) {
-  intro(title)
-  note(message(messages, 'intro'))
+function showLogo(messages, columns) {
+  const lines = message(messages, columns >= WIDE_LOGO_COLUMNS ? 'logoWide' : 'logoNarrow').split('\n')
+  const width = Math.max(...lines.map((line) => line.length))
+  // Padded to one width so the centred box keeps the letters aligned.
+  const logo = lines.map((line) => styleText('blue', line.padEnd(width))).join('\n')
+  box(`${logo}\n\n${styleText('dim', message(messages, 'credit'))}`, '', {
+    contentAlign: 'center',
+    width: 'auto',
+    rounded: true,
+    withGuide: false,
+    formatBorder: (text) => styleText('blue', text),
+  })
 }
 
 /**
@@ -50,6 +76,14 @@ export function showNote(text, title) {
 /** @param {string} text */
 export function say(text) {
   log.info(text)
+}
+
+/**
+ * Plain lines on the guide bar, with no icon.
+ * @param {string} text
+ */
+export function plain(text) {
+  log.message(text)
 }
 
 /** @param {string} text */
@@ -68,13 +102,15 @@ export function fail(text) {
 }
 
 /**
+ * Stopping clears the line: the report that follows says what happened. One spinner can carry
+ * several steps with `update`, so a run leaves one blank line, not one per step.
  * @param {string} text
- * @returns {{ stop(text?: string): void }}
+ * @returns {{ stop(): void, update(text: string): void }}
  */
 export function startSpinner(text) {
   const active = spinner()
   active.start(text)
-  return { stop: (done) => active.stop(done) }
+  return { stop: () => active.clear(), update: (next) => active.message(next) }
 }
 
 /**
@@ -102,22 +138,6 @@ export async function confirm(question, initial = true) {
 
 /**
  * @param {Record<string, any>} messages
- * @param {ModuleDefinition} module
- * @param {string[]} installedCodes
- * @param {Record<string, string>} installedVersions
- * @returns {string}
- */
-function moduleLabel(messages, module, installedCodes, installedVersions) {
-  if (!installedCodes.includes(module.code)) return module.name
-  const version = installedVersions[module.code]
-  const suffix = version
-    ? message(messages, 'installedSuffix', { version })
-    : message(messages, 'installedSuffixNoVersion')
-  return `${module.name} ${suffix}`
-}
-
-/**
- * @param {Record<string, any>} messages
  * @param {ModuleDefinition[]} modules
  * @param {{ installedCodes: string[], installedVersions: Record<string, string> }} options
  * @returns {Picker}
@@ -129,28 +149,12 @@ export function modulePicker(messages, modules, options) {
   return {
     options: shown.map((module) => ({
       value: module.code,
-      label: moduleLabel(messages, module, installedCodes, installedVersions),
+      label: installedCodes.includes(module.code) ? installedLabel(messages, module.name, installedVersions[module.code]) : module.name,
       hint: module.description,
     })),
     initialValues: shown
       .filter((module) => installedCodes.includes(module.code) || (fresh && module.default))
       .map((module) => module.code),
-  }
-}
-
-/**
- * @param {ModuleDefinition} module
- * @param {{ installedSkills: string[] }} options
- * @returns {Picker}
- */
-export function bundlePicker(module, options) {
-  const bundles = module.bundles ?? []
-  const installed = new Set(options.installedSkills)
-  return {
-    options: bundles.map((bundle) => ({ value: bundle.code, label: bundle.name, hint: bundle.description })),
-    initialValues: bundles
-      .filter((bundle) => bundle.default || bundle.skills.every((skill) => installed.has(skill)))
-      .map((bundle) => bundle.code),
   }
 }
 
@@ -169,16 +173,43 @@ export async function chooseModules(messages, modules, options) {
 }
 
 /**
+ * Every agent under its own name; the skills CLI writes `.agents/skills` once however many of the
+ * agents that share it are picked. Preselected agents come first, then the rest by name.
+ * Nothing is marked as installed: an agent's config folder often outlives the agent.
+ * @param {Agent[]} agents
+ * @param {{ initial: string[] }} options
+ * @returns {Picker}
+ */
+export function agentPicker(agents, options) {
+  const listed = agents
+    .filter((agent) => agent.id !== UNIVERSAL_AGENT)
+    .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }))
+  const ordered = [
+    ...listed.filter((agent) => options.initial.includes(agent.id)),
+    ...listed.filter((agent) => !options.initial.includes(agent.id)),
+  ]
+  return {
+    options: ordered.map((agent) => ({ value: agent.id, label: agent.name, hint: agent.skillsDir })),
+    initialValues: options.initial,
+  }
+}
+
+/**
  * @param {Record<string, any>} messages
- * @param {ModuleDefinition} module
- * @param {{ installedSkills: string[] }} options
+ * @param {Agent[]} agents
+ * @param {{ initial: string[] }} options
  * @returns {Promise<string[]>}
  */
-export async function chooseBundles(messages, module, options) {
-  return ensure(await multiselect({
-    message: message(messages, 'bundlesPrompt', { module: module.name }),
-    ...bundlePicker(module, options),
-    required: false,
+export async function chooseAgents(messages, agents, options) {
+  const picker = agentPicker(agents, options)
+  const search = Object.fromEntries(agents.map((agent) => [agent.id, `${agent.id} ${agent.name}`.toLowerCase()]))
+  return ensure(await autocompleteMultiselect({
+    message: message(messages, 'agentsPrompt'),
+    placeholder: message(messages, 'agentsPlaceholder'),
+    ...picker,
+    filter: (query, option) => (search[option.value] ?? '').includes(query.trim().toLowerCase()),
+    maxItems: 12,
+    required: true,
   }))
 }
 

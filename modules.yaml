@@ -1,8 +1,12 @@
+# `source` is the module's folder: `owner/repo/path`, or `owner/repo` when the repository holds one module. The installer runs one `npx skills add <source> -s '*'` per module.
+# `code` is the code in the module's [bmod] table, so an installed module is recognised; `aliases` are other names `--modules` takes.
+# `requires` lists the modules installed along with this one.
+# `record` is the skill holding the module's [bmod] table: a bmod-* record that lists the module's skills, or, for a module of one skill, that skill itself.
 modules:
   - code: core-tools
     name: BMad Core Tools
     description: Brainstorming, research, review, party mode, customization
-    source: bmad-code-org/BMAD-METHOD
+    source: bmad-code-org/BMAD-METHOD/skills/core-tools
     record: bmod-core-tools
     always: true
 
@@ -10,28 +14,37 @@ modules:
     aliases: [bmm]
     name: BMad Method
     description: Plan, spec and build software with agile AI agents
-    source: bmad-code-org/BMAD-METHOD
+    source: bmad-code-org/BMAD-METHOD/skills/method
     record: bmod-method
     default: true
-    message: |
-      BMad Method is installed.
-      Once setup is done, ask the `bmad` skill what to do next.
-    bundles:
-      - code: planning
-        name: Planning
-        description: Brief, PRD, UX, architecture, spec, ticketing, walkthrough
-        default: true
-        skills: [bmad-product-brief, bmad-prfaq, bmad-prd, bmad-ux, bmad-architecture, bmad-spec, bmad-project-context, bmad-ticket, bmad-walkthrough]
-      - code: build
-        name: Build
-        description: Ticketing, spec, build, review, course correction, retrospective, walkthrough
-        default: true
-        skills: [bmad-ticket, bmad-spec, bmad-build, bmad-build-auto, bmad-code-review, bmad-correct-course, bmad-retrospective, bmad-qa-generate-e2e-tests, bmad-walkthrough]
-      - code: agents
-        name: Agent personas
-        description: Analyst, architect, developer, PM and UX designer agents
-        default: true
-        skills: [bmad-agent-analyst, bmad-agent-architect, bmad-agent-dev, bmad-agent-pm, bmad-agent-ux-designer]
+
+  - code: toolsmith
+    name: BMad Toolsmith
+    description: Build, convert, review and package skills, agents and modules
+    source: bmad-code-org/BMAD-METHOD/skills/toolsmith
+    record: bmod-toolsmith
+    default: true
+
+  - code: founder
+    name: BMad Founder
+    description: Nadia the Founder Advisor, for the business side of a startup
+    source: bmad-code-org/BMAD-METHOD/skills/founder
+    record: bmad-founder-agent-advisor
+
+  - code: tea
+    name: BMad Test Architect
+    description: Murat, for test planning, automation, evaluation and release decisions
+    # The repository root also holds test fixture skills, so the source is its skills folder.
+    source: bmad-code-org/bmad-method-test-architecture-enterprise/skills
+    record: bmod-tea
+
+  - code: bmad-loop
+    aliases: [loop]
+    name: BMad Loop
+    description: Runs stories unattended (implement, review, verify, commit). Early beta
+    source: bmad-code-org/bmad-loop/skills
+    record: bmod-bmad-loop
+    requires: [method]
 
   - code: cis
     name: BMad Creative Intelligence Suite

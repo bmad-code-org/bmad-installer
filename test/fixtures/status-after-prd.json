@@ -70,7 +70,12 @@
   "unmet_requirements": [],
   "unmet_recommendations": [],
   "problems": [],
-  "legacy_leftovers": [],
+  "duplicate_skills": [],
+  "retired_skills": [],
+  "custom_renames": [],
+  "custom_not_renamed": [],
+  "custom_unused": [],
+  "install_offers": [],
   "current": false,
   "next": "bmad setup"
 }

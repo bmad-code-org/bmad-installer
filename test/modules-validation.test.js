@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ModulesError, findModule, groupBySource, loadModules } from '../src/modules.js'
+import { ModulesError, findModule, loadModules, overrideSource } from '../src/modules.js'
 
 const SOURCE_OVERRIDE = 'BMAD_INSTALLER_SOURCE_OVERRIDE'
 
@@ -54,16 +54,6 @@ modules:
     record: bmod-two
     default: true
     deprecated: use one instead
-    bundles:
-      - code: a
-        name: A
-        description: Bundle A
-        default: true
-        skills: [s1, s2]
-      - code: b
-        name: B
-        description: Bundle B
-        skills: [s3]
 `
 
 test('findModule matches codes and aliases', async () => {
@@ -87,23 +77,23 @@ test('validation rejects malformed files', async () => {
   )
   await assertInvalid(`${VALID}\n  - code: one\n    name: Dup\n    description: d\n    source: o/r\n    record: r\n`, 'already used')
   await assertInvalid(`${VALID}\n  - code: dos\n    name: Dup\n    description: d\n    source: o/r\n    record: r\n`, 'already used')
-  await assertInvalid(
-    'modules:\n  - code: one\n    name: One\n    description: d\n    source: o/r\n    record: r\n    bundles:\n      - code: a\n        name: A\n        description: d\n        skills: []\n',
-    'skills must be a non-empty array',
-  )
-  await assertInvalid(
-    'modules:\n  - code: one\n    name: One\n    description: d\n    source: o/r\n    record: r\n    bundles:\n      - code: a\n        name: A\n        description: d\n        skills: [s]\n      - code: a\n        name: A2\n        description: d\n        skills: [t]\n',
-    'bundle codes must be unique',
-  )
+  await assertInvalid(`${VALID}\n  - code: three\n    name: Three\n    description: d\n    source: o/r\n    record: r\n    requires: [nope]\n`, 'not a module code')
+  await assertInvalid(`${VALID}\n  - code: three\n    name: Three\n    description: d\n    source: o/r\n    record: r\n    requires: one\n`, 'list of module codes')
 })
 
-test('the source override replaces every source after validation', async () => {
+test('requires names other module codes', async () => {
+  const modules = await loadModules(await writeModulesFile(`${VALID}\n  - code: three\n    name: Three\n    description: d\n    source: o/r\n    record: r\n    requires: [two]\n`))
+  assert.deepEqual(findModule(modules, 'three')?.requires, ['two'])
+})
+
+test('the source override swaps the repository of the core modules and keeps their folders', async () => {
   const previous = process.env[SOURCE_OVERRIDE]
   process.env[SOURCE_OVERRIDE] = '/tmp/local-checkout'
   try {
-    const modules = await loadModules()
-    assert.deepEqual(new Set(modules.map((module) => module.source)), new Set(['/tmp/local-checkout']))
-    assert.equal(groupBySource(modules).size, 1)
+    const sources = Object.fromEntries((await loadModules()).map((module) => [module.code, module.source]))
+    assert.equal(sources['core-tools'], '/tmp/local-checkout/skills/core-tools')
+    assert.equal(sources.founder, '/tmp/local-checkout/skills/founder')
+    assert.equal(sources.cis, 'bmad-code-org/bmad-module-creative-intelligence-suite')
     await assertInvalid(
       'modules:\n  - code: one\n    name: One\n    description: d\n    source: nope\n    record: r\n',
       'owner/repo',
@@ -112,4 +102,11 @@ test('the source override replaces every source after validation', async () => {
     if (previous === undefined) delete process.env[SOURCE_OVERRIDE]
     else process.env[SOURCE_OVERRIDE] = previous
   }
+})
+
+test('overrideSource puts a ref after the folder and leaves other repositories alone', () => {
+  const repo = 'o/r'
+  assert.equal(overrideSource('o/r/skills/method', 'o/r#dev', repo), 'o/r/skills/method#dev')
+  assert.equal(overrideSource('o/r', '/local/', repo), '/local')
+  assert.equal(overrideSource('x/y/skills/a', '/local', repo), 'x/y/skills/a')
 })

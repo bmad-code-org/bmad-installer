@@ -4,11 +4,13 @@
     "checkJs": true,
     "noEmit": true,
     "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "target": "es2022",
     "types": ["node"],
     "skipLibCheck": true
   },
-  "include": ["bin", "src", "test"]
+  "include": ["bin", "src", "test", "tools"]
 }

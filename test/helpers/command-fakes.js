@@ -1,6 +1,8 @@
+import { mkdtempSync } from 'node:fs'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { loadAgents } from '../../src/agents.js'
 import { loadMessages } from '../../src/messages.js'
 import { loadModules } from '../../src/modules.js'
 
@@ -14,6 +16,18 @@ import { loadModules } from '../../src/modules.js'
 
 export const messages = await loadMessages()
 export const modules = await loadModules()
+export const agents = await loadAgents()
+export const HOME = '/home/user'
+
+/**
+ * A file system where only `paths` exist, for agent detection.
+ * @param {string[]} [paths]
+ * @returns {(project: string) => import('../../src/agents.js').DetectContext}
+ */
+export function detectWith(paths = []) {
+  const existing = new Set(paths)
+  return (project) => ({ home: HOME, project, exists: (path) => existing.has(path) })
+}
 export const RECORDS = ['bmad', 'bmod-core-tools', 'bmod-method']
 
 const fresh = JSON.parse(await readFile(new URL('../fixtures/status-fresh.json', import.meta.url), 'utf8'))
@@ -31,31 +45,37 @@ export function listed(name) {
 /** @param {Record<string, any>} [answers] */
 export function fakePrompts(answers = {}) {
   /** @type {Record<string, string[]>} */
-  const said = { notes: [], says: [], warns: [], fails: [], finish: [] }
+  const said = { notes: [], says: [], warns: [], fails: [], finish: [], plain: [] }
   /** @type {string[]} */
   const asked = []
+  /** @type {{ initial: string[] }[]} */
+  const pickers = []
   const prompts = /** @type {any} */ ({
     showIntro: () => asked.push('intro'),
-    showNote: (/** @type {string} */ t) => said.notes.push(t),
+    showNote: (/** @type {string} */ t, /** @type {string | undefined} */ title) => said.notes.push(title ? `${title}\n${t}` : t),
     say: (/** @type {string} */ t) => said.says.push(t),
+    plain: (/** @type {string} */ t) => said.plain.push(t),
     warn: (/** @type {string} */ t) => said.warns.push(t),
     fail: (/** @type {string} */ t) => said.fails.push(t),
     finish: (/** @type {string} */ t) => said.finish.push(t),
-    startSpinner: () => ({ stop: () => {} }),
+    startSpinner: () => ({ stop: () => {}, update: () => {} }),
     askDirectory: async (/** @type {any} */ _m, /** @type {string} */ d) => (asked.push('directory'), d),
     confirm: async () => (asked.push('confirm'), answers.confirm ?? true),
     chooseModules: async () => (asked.push('modules'), answers.modules ?? ['method']),
-    chooseBundles: async () => (asked.push('bundles'), answers.bundles ?? ['planning']),
+    chooseAgents: async (/** @type {any} */ _m, /** @type {any} */ _a, /** @type {{ initial: string[] }} */ picker) => {
+      asked.push('agents')
+      pickers.push(picker)
+      return answers.agents ?? (picker.initial.length > 0 ? picker.initial : ['claude-code'])
+    },
     chooseExistingAction: async () => (asked.push('existing'), answers.existing ?? 'modify'),
   })
-  return { prompts, said, asked }
+  return { prompts, said, asked, pickers }
 }
 
 /**
  * @param {{
  *   lists: ListedSkill[][],
  *   add?: (request: any) => AddResult[],
- *   onInteractive?: () => Promise<void>,
  *   updateCode?: number
  * }} script
  */
@@ -64,19 +84,10 @@ export function fakeSkillsCli(script) {
   const requests = []
   let listIndex = 0
   const cli = /** @type {any} */ ({
-    async addInteractive(/** @type {any} */ request) {
-      requests.push({ kind: 'interactive', ...request })
-      await script.onInteractive?.()
-      return { code: 0 }
-    },
     async add(/** @type {any} */ request) {
       requests.push({ kind: 'add', ...request })
       if (script.add) return script.add(request)
       return request.skills.map((/** @type {string} */ name) => ({ name, status: 'installed' }))
-    },
-    async update(/** @type {any} */ options) {
-      requests.push({ kind: 'update', ...options })
-      return { code: script.updateCode ?? 0 }
     },
     async list(/** @type {any} */ options) {
       requests.push({ kind: 'list', ...options })
@@ -120,8 +131,14 @@ export function fakeRunner(script = {}) {
   return { runner, calls }
 }
 
+/** A throwaway HOME and state folder, so no test reads or writes the real ones. */
+function isolatedHome() {
+  const home = mkdtempSync(join(tmpdir(), 'bmad-home-'))
+  return { HOME: home, XDG_STATE_HOME: join(home, '.state') }
+}
+
 /**
- * @param {{ prompts: any, skillsCli: any, bmadScripts: any, cwd?: string, env?: NodeJS.ProcessEnv, runner?: Runner }} parts
+ * @param {{ prompts: any, skillsCli: any, bmadScripts: any, cwd?: string, env?: NodeJS.ProcessEnv, runner?: Runner, detect?: ReturnType<typeof detectWith> }} parts
  * @returns {CommandDeps}
  */
 export function makeDeps(parts) {
@@ -131,10 +148,13 @@ export function makeDeps(parts) {
     bmadScripts: parts.bmadScripts,
     messages,
     modules,
+    agents,
+    detect: parts.detect ?? detectWith(),
     prompts: parts.prompts,
-    env: parts.env ?? {},
+    env: { ...isolatedHome(), ...parts.env },
     cwd: parts.cwd ?? '/project',
     version: '6.13.0-next.0',
+    node: '24.0.0',
     terminal: () => true,
     agent: async () => null,
   })

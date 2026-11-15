@@ -7,3 +7,5 @@ Push the tag: `git push origin vX.Y.Z`. The `publish.yml` workflow runs on that 
 Once you've verified the published version works, move the `latest` dist-tag by hand: `npm dist-tag add bmad-method@X.Y.Z latest`.
 
 The npm trusted publisher for this package must point at `bmad-code-org/bmad-installer`; if it points anywhere else, `npm publish --provenance` in the workflow fails.
+
+To move to a newer skills CLI, set the exact version in `package.json` (no `^`), run `npm install`, then `npm run agents` to regenerate `agents.json`. Commit both together; `npm test` fails while they disagree.

@@ -1,0 +1,68 @@
+import { readFile } from 'node:fs/promises'
+import { isAbsolute, join, posix, resolve } from 'node:path'
+import { repoOf } from './modules.js'
+
+/** @typedef {{ source?: string, sourceUrl?: string, sourceType?: string, ref?: string, skillPath?: string }} LockEntry */
+
+/**
+ * The skills CLI's project lock, `skills-lock.json`: where each skill was installed from.
+ * @param {string} directory
+ * @returns {Promise<Record<string, LockEntry>>}
+ */
+export async function readProjectLock(directory) {
+  try {
+    const lock = JSON.parse(await readFile(join(directory, 'skills-lock.json'), 'utf8'))
+    return lock?.skills && typeof lock.skills === 'object' ? lock.skills : {}
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * The folder holding a module, from the lock entry of its record: the parent of the record's own
+ * folder, on the source and ref it came from. Mirrors the skills CLI's own update source, one
+ * folder up. Null when the entry cannot be installed again (a bare shorthand for a generic git host).
+ * @param {LockEntry | undefined} entry
+ * @param {string} directory
+ * @returns {string | null}
+ */
+export function moduleSourceFromLock(entry, directory) {
+  if (!entry || entry.sourceType === 'well-known' || entry.sourceType === 'node_modules') return null
+  const github = !entry.sourceType || entry.sourceType === 'github'
+  let source = github ? entry.source : entry.sourceUrl || entry.source
+  if (!source) return null
+  const bareShorthand = !source.includes(':') && !/^[./]/.test(source)
+  if ((entry.sourceType === 'git' || entry.sourceType === 'gitlab') && bareShorthand) return null
+  const skillFolder = (entry.skillPath ?? '').replace(/\/?SKILL\.md$/, '')
+  const folder = skillFolder ? posix.dirname(skillFolder) : '.'
+  if (entry.sourceType === 'local') return join(isAbsolute(source) ? source : resolve(directory, source), ...folder.split('/'))
+  const withFolder = github && folder !== '.' ? `${source.replace(/\/+$/, '')}/${folder}` : source
+  return entry.ref ? `${withFolder}#${entry.ref}` : withFolder
+}
+
+/**
+ * The branch or tag a module in modules.yaml was installed from, when the lock entry of its
+ * record names one and comes from the module's own repository. Only the ref is taken: the folder
+ * stays the one modules.yaml gives, which survives a module moving inside its repository.
+ * @param {LockEntry | undefined} entry
+ * @param {string} source
+ * @returns {string | undefined}
+ */
+export function lockedRef(entry, source) {
+  if (!entry?.ref || source.includes('#')) return undefined
+  return lockedGitHubRepo(entry) === repoOf(source).toLowerCase() ? entry.ref : undefined
+}
+
+/**
+ * The `owner/repo` on github.com a lock entry came from, in lower case: from a shorthand, or from
+ * an https or SSH git URL. Undefined for any other host or source type.
+ * @param {LockEntry} entry
+ * @returns {string | undefined}
+ */
+function lockedGitHubRepo(entry) {
+  if (!entry.sourceType || entry.sourceType === 'github') return entry.source?.toLowerCase()
+  if (entry.sourceType !== 'git') return undefined
+  const url = entry.sourceUrl || entry.source || ''
+  const match = /^(?:https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/i.exec(url)
+  return match?.[1].toLowerCase()
+}

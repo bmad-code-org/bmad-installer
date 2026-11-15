@@ -1,112 +1,97 @@
-import { bundleCodes, findModule, groupBySource, skillsToInstall } from '../modules.js'
-import { versionMajor } from '../report.js'
+import { customModule, isModuleSource, sourceAtRef } from '../modules.js'
 
 /** @typedef {import('../bmad-scripts.js').Migration} Migration */
 /** @typedef {import('../bmad-scripts.js').StatusReport} StatusReport */
-/** @typedef {import('../modules.js').ModuleChoice} ModuleChoice */
 /** @typedef {import('../modules.js').ModuleDefinition} ModuleDefinition */
 /** @typedef {{ source: string, skills: string[], label: string }} InstallCall */
-/** @typedef {{ module: string, skills: string[] }} UnknownSkills */
+
+const ALL_SKILLS = '*'
 
 /**
- * @param {string} source
- * @param {ModuleDefinition[]} modules
- * @returns {string}
- */
-function callLabel(source, modules) {
-  return modules.length === 1 ? modules[0].name : source
-}
-
-/**
- * Puts the picked modules in modules.yaml order and adds the `always` ones, which neither
- * the flag nor the prompt ever contributes.
- * @param {ModuleChoice[]} choices
- * @param {ModuleDefinition[]} modules
- * @returns {ModuleChoice[]}
- */
-export function orderedChoices(choices, modules) {
-  const picked = new Map(choices.map((choice) => [choice.code, choice]))
-  /** @type {ModuleChoice[]} */
-  const ordered = []
-  for (const module of modules) {
-    const choice = picked.get(module.code)
-    if (choice) ordered.push(choice)
-    else if (module.always) {
-      ordered.push({
-        code: module.code,
-        bundles: module.bundles ? bundleCodes(module, (bundle) => bundle.default === true) : null,
-      })
-    }
-  }
-  return ordered
-}
-
-/**
- * @param {ModuleChoice[]} choices
+ * Resolves the picked codes in modules.yaml order and adds the `always` modules, which neither
+ * the flag nor the prompt has to name, and the modules the picked ones require. A code picked as
+ * `code#ref` comes from that branch or tag. Sources from `--modules` follow, in the order given.
+ * @param {string[]} codes
  * @param {ModuleDefinition[]} modules
  * @returns {ModuleDefinition[]}
  */
-export function chosenModules(choices, modules) {
-  return choices.flatMap((choice) => {
-    const module = findModule(modules, choice.code)
-    return module ? [module] : []
-  })
+export function chosenModules(codes, modules) {
+  /** @type {Map<string, string | undefined>} */
+  const refs = new Map()
+  for (const picked of codes) {
+    if (isModuleSource(picked)) continue
+    const [code, ref] = picked.split('#')
+    refs.set(code, ref)
+  }
+  for (const code of requiredCodes([...refs.keys()], modules)) refs.set(code, undefined)
+  const listed = modules
+    .filter((module) => module.always || refs.has(module.code))
+    .map((module) => {
+      const ref = refs.get(module.code)
+      return ref ? { ...module, source: sourceAtRef(module.source, ref), ref } : module
+    })
+  return [...listed, ...codes.filter(isModuleSource).map(customModule)]
 }
 
 /**
- * Records already in the project are left alone; `update` is what refreshes them.
+ * The codes the picked modules require, directly or through another required module, that were
+ * not picked themselves.
+ * @param {string[]} picked
+ * @param {ModuleDefinition[]} modules
+ * @returns {string[]}
+ */
+export function requiredCodes(picked, modules) {
+  const wanted = new Set(picked.map((code) => code.split('#')[0]))
+  /** @type {string[]} */
+  const added = []
+  for (const code of wanted) {
+    for (const required of modules.find((module) => module.code === code)?.requires ?? []) {
+      if (wanted.has(required)) continue
+      wanted.add(required)
+      added.push(required)
+    }
+  }
+  return added
+}
+
+/**
+ * One skills add per module, for every skill in the module's folder. A module is left alone,
+ * since `update` is what refreshes it, only when it is installed with nothing missing and every
+ * picked agent's folder already holds its record; a ref asked for always re-adds it.
  * @param {ModuleDefinition[]} chosen
- * @param {string} firstSkill
- * @param {string[]} installed
+ * @param {StatusReport | null} installed
+ * @param {(record: string) => boolean} [heldByEveryAgent]
  * @returns {InstallCall[]}
  */
-export function recordCalls(chosen, firstSkill, installed = []) {
-  /** @type {InstallCall[]} */
-  const calls = []
-  let first = true
-  for (const [source, modules] of groupBySource(chosen)) {
-    const wanted = modules.map((module) => module.record)
-    if (first) wanted.unshift(firstSkill)
-    first = false
-    const skills = wanted.filter((skill) => !installed.includes(skill))
-    if (skills.length > 0) calls.push({ source, skills, label: callLabel(source, modules) })
-  }
-  return calls
+export function moduleCalls(chosen, installed, heldByEveryAgent = () => true) {
+  const entries = new Map((installed?.modules ?? []).map((entry) => [entry.module, entry]))
+  return chosen
+    .filter((module) => {
+      const entry = entries.get(module.code)
+      return module.ref || !entry || entry.absent_skills.length > 0 || !heldByEveryAgent(module.record)
+    })
+    .map((module) => ({ source: module.source, skills: [ALL_SKILLS], label: module.name }))
 }
 
 /**
- * @param {ModuleChoice[]} choices
- * @param {ModuleDefinition[]} modules
- * @param {StatusReport} report
- * @returns {{ calls: InstallCall[], unknown: UnknownSkills[] }}
+ * The command that repeats this install without prompts.
+ * @param {ModuleDefinition[]} chosen
+ * @param {string[]} agents
+ * @returns {string}
  */
-export function memberCalls(choices, modules, report) {
-  const entries = new Map(report.modules.map((entry) => [entry.module, entry]))
-  /** @type {Map<string, { skills: string[], modules: ModuleDefinition[] }>} */
-  const bySource = new Map()
-  /** @type {UnknownSkills[]} */
-  const unknown = []
+export function repeatCommand(chosen, agents) {
+  const picked = chosen.filter((module) => !module.always || module.ref)
+  const codes = (picked.length > 0 ? picked : chosen).map((module) => (module.ref ? `${module.code}#${module.ref}` : module.code))
+  return `npx bmad-method install -m ${shellWord(codes.join(','))} -t ${agents.join(',')} -y`
+}
 
-  for (const choice of choices) {
-    const module = findModule(modules, choice.code)
-    const entry = module && entries.get(module.code)
-    if (!module || !entry) continue
-    const wanted = skillsToInstall(module, choice.bundles, [...entry.skills, ...entry.absent_skills])
-    if (wanted.unknown.length > 0) unknown.push({ module: module.name, skills: wanted.unknown })
-    const missing = wanted.install.filter((skill) => entry.absent_skills.includes(skill))
-    if (missing.length === 0) continue
-    const group = bySource.get(module.source) ?? { skills: [], modules: [] }
-    for (const skill of missing) if (!group.skills.includes(skill)) group.skills.push(skill)
-    group.modules.push(module)
-    bySource.set(module.source, group)
-  }
-
-  const calls = [...bySource].map(([source, group]) => ({
-    source,
-    skills: group.skills,
-    label: callLabel(source, group.modules),
-  }))
-  return { calls, unknown }
+/**
+ * Single-quotes a word for a POSIX shell when it holds anything but plain path characters.
+ * @param {string} word
+ * @returns {string}
+ */
+function shellWord(word) {
+  return /^[\w@%+=:,./#~-]+$/.test(word) ? word : `'${word.replaceAll("'", "'\\''")}'`
 }
 
 /**
@@ -121,15 +106,25 @@ export function versionsByCode(report) {
 }
 
 /**
+ * @param {string} version
+ * @returns {string | null}
+ */
+export function versionMajor(version) {
+  const match = /^v?(\d+)(?=[.\-+]|$)/.exec(version.trim())
+  return match ? match[1] : null
+}
+
+/**
+ * The migrations for a major version a module crossed in this run. A module the run did not
+ * touch has the same version before and after, so it never matches.
  * @param {Migration[]} migrations
- * @param {{ codes: string[], before: Record<string, string>, after: Record<string, string> }} options
+ * @param {{ before: Record<string, string>, after: Record<string, string> }} versions
  * @returns {Migration[]}
  */
-export function selectMigrations(migrations, options) {
+export function selectMigrations(migrations, versions) {
   return migrations.filter((migration) => {
-    if (!options.codes.includes(migration.module)) return false
-    const from = versionMajor(options.before[migration.module] ?? '')
-    const to = versionMajor(options.after[migration.module] ?? '')
+    const from = versionMajor(versions.before[migration.module] ?? '')
+    const to = versionMajor(versions.after[migration.module] ?? '')
     return from !== null && from === migration.from && to !== null && to === migration.to
   })
 }

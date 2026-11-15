@@ -3,10 +3,11 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import {
   chosenModules,
-  memberCalls,
-  orderedChoices,
-  recordCalls,
+  moduleCalls,
+  repeatCommand,
+  requiredCodes,
   selectMigrations,
+  versionMajor,
   versionsByCode,
 } from '../../src/commands/install-plan.js'
 import { loadModules } from '../../src/modules.js'
@@ -22,99 +23,29 @@ function statusOf() {
   return structuredClone(fixture)
 }
 
-test('orderedChoices adds the always modules and follows modules.yaml order', () => {
-  assert.deepEqual(orderedChoices([{ code: 'cis', bundles: null }, { code: 'method', bundles: ['build'] }], modules), [
-    { code: 'core-tools', bundles: null },
-    { code: 'method', bundles: ['build'] },
-    { code: 'cis', bundles: null },
+test('chosenModules adds the always modules, follows modules.yaml order and drops unknown codes', () => {
+  const codes = (/** @type {string[]} */ picked) => chosenModules(picked, modules).map((module) => module.code)
+  assert.deepEqual(codes(['cis', 'method', 'gone']), ['core-tools', 'method', 'cis'])
+  assert.deepEqual(codes([]), ['core-tools'])
+})
+
+test('moduleCalls asks for every skill in each chosen module folder, in modules.yaml order', () => {
+  const calls = moduleCalls(chosenModules(['founder', 'method'], modules), null)
+  assert.deepEqual(calls, [
+    { source: 'bmad-code-org/BMAD-METHOD/skills/core-tools', skills: ['*'], label: 'BMad Core Tools' },
+    { source: 'bmad-code-org/BMAD-METHOD/skills/method', skills: ['*'], label: 'BMad Method' },
+    { source: 'bmad-code-org/BMAD-METHOD/skills/founder', skills: ['*'], label: 'BMad Founder' },
   ])
-  assert.deepEqual(orderedChoices([], modules), [{ code: 'core-tools', bundles: null }])
 })
 
-test('chosenModules resolves the definitions and drops unknown codes', () => {
-  const chosen = chosenModules([{ code: 'method', bundles: null }, { code: 'gone', bundles: null }], modules)
-  assert.deepEqual(chosen.map((module) => module.code), ['method'])
-})
-
-test('recordCalls puts bmad in the first source call and one call per source', () => {
-  const chosen = chosenModules(orderedChoices([{ code: 'method', bundles: [] }, { code: 'cis', bundles: null }], modules), modules)
-  const calls = recordCalls(chosen, 'bmad')
-
-  assert.equal(calls.length, 2)
-  assert.deepEqual(calls[0], {
-    source: 'bmad-code-org/BMAD-METHOD',
-    skills: ['bmad', 'bmod-core-tools', 'bmod-method'],
-    label: 'bmad-code-org/BMAD-METHOD',
-  })
-  assert.deepEqual(calls[1], {
-    source: 'bmad-code-org/bmad-module-creative-intelligence-suite',
-    skills: ['bmod-cis'],
-    label: 'BMad Creative Intelligence Suite',
-  })
-})
-
-test('recordCalls leaves out records already in the project and drops empty calls', () => {
-  const chosen = chosenModules(orderedChoices([{ code: 'method', bundles: [] }, { code: 'cis', bundles: null }], modules), modules)
-
-  const partial = recordCalls(chosen, 'bmad', ['bmad', 'bmod-core-tools'])
-  assert.deepEqual(partial.map((call) => call.skills), [['bmod-method'], ['bmod-cis']])
-
-  const onlyCis = recordCalls(chosen, 'bmad', ['bmad', 'bmod-core-tools', 'bmod-method'])
-  assert.deepEqual(onlyCis.map((call) => call.skills), [['bmod-cis']])
-
-  assert.deepEqual(recordCalls(chosen, 'bmad', ['bmad', 'bmod-core-tools', 'bmod-method', 'bmod-cis']), [])
-})
-
-test('memberCalls leaves out bundle skills that are already installed without calling them unknown', () => {
-  const report = statusOf()
-  report.modules[1].skills = ['bmad-prd']
-  report.modules[1].absent_skills = report.modules[1].absent_skills.filter((name) => name !== 'bmad-prd')
-  const { calls, unknown } = memberCalls([{ code: 'method', bundles: ['planning'] }], modules, report)
-
-  assert.deepEqual(unknown, [])
-  assert.equal(calls[0].skills.includes('bmad-prd'), false)
-  assert.ok(calls[0].skills.includes('bmad-product-brief'))
-})
-
-test('memberCalls takes the absent skills of a module without bundles', () => {
-  const { calls, unknown } = memberCalls([{ code: 'core-tools', bundles: null }], modules, statusOf())
-
-  assert.deepEqual(unknown, [])
-  assert.equal(calls.length, 1)
-  assert.equal(calls[0].label, 'BMad Core Tools')
-  assert.deepEqual(calls[0].skills, statusOf().modules[0].absent_skills)
-})
-
-test('memberCalls unions the chosen bundles and names what the record dropped', () => {
-  const report = statusOf()
-  report.modules[1].absent_skills = report.modules[1].absent_skills.filter((name) => name !== 'bmad-ux')
-  const { calls, unknown } = memberCalls([{ code: 'method', bundles: ['planning', 'agents'] }], modules, report)
-
-  assert.deepEqual(unknown, [{ module: 'BMad Method', skills: ['bmad-ux'] }])
-  assert.ok(calls[0].skills.includes('bmad-prd'))
-  assert.ok(calls[0].skills.includes('bmad-agent-dev'))
-  assert.equal(calls[0].skills.includes('bmad-build'), false)
-  assert.equal(calls[0].skills.includes('bmad-ux'), false)
-})
-
-test('memberCalls merges modules that share a source and skips empty ones', () => {
+test('moduleCalls leaves out a module installed with nothing missing and redoes one with gaps', () => {
   const report = statusOf()
   report.modules[0].absent_skills = []
-  const { calls } = memberCalls(
-    [{ code: 'core-tools', bundles: null }, { code: 'method', bundles: ['agents'] }],
-    modules,
-    report,
-  )
+  const calls = moduleCalls(chosenModules(['method'], modules), report)
+  assert.deepEqual(calls.map((call) => call.label), ['BMad Method'])
 
-  assert.equal(calls.length, 1)
-  assert.deepEqual(calls[0].skills, [
-    'bmad-agent-analyst', 'bmad-agent-architect', 'bmad-agent-dev', 'bmad-agent-pm', 'bmad-agent-ux-designer',
-  ])
-  assert.equal(calls[0].label, 'BMad Method')
-})
-
-test('memberCalls ignores a chosen module the status does not know', () => {
-  assert.deepEqual(memberCalls([{ code: 'cis', bundles: null }], modules, statusOf()), { calls: [], unknown: [] })
+  report.modules[1].absent_skills = []
+  assert.deepEqual(moduleCalls(chosenModules(['method'], modules), report), [])
 })
 
 test('versionsByCode maps the status entries and tolerates no status', () => {
@@ -122,7 +53,7 @@ test('versionsByCode maps the status entries and tolerates no status', () => {
   assert.deepEqual(versionsByCode(null), {})
 })
 
-test('selectMigrations keeps only chosen modules whose major actually moved', () => {
+test('selectMigrations keeps only modules whose major actually moved', () => {
   /** @param {Partial<Migration>} patch @returns {Migration} */
   const migration = (patch) => ({
     module: 'method', path: 'm.toml', file: '/p/m.toml', from: '6', to: '7', title: 'Move', ...patch,
@@ -134,11 +65,71 @@ test('selectMigrations keeps only chosen modules whose major actually moved', ()
     migration({ module: 'core-tools' }),
   ]
   const kept = selectMigrations(all, {
-    codes: ['core-tools', 'method'],
     before: { method: '6.13.0-next', 'core-tools': '6.13.0-next' },
     after: { method: '7.0.0', 'core-tools': '6.14.0' },
   })
 
   assert.deepEqual(kept, [migration({})])
-  assert.deepEqual(selectMigrations(all, { codes: ['method'], before: {}, after: { method: '7.0.0' } }), [])
+  assert.deepEqual(selectMigrations(all, { before: {}, after: { method: '7.0.0' } }), [])
+})
+
+test('repeatCommand names the picked modules and the agents', () => {
+  assert.equal(repeatCommand(chosenModules(['method', 'cis'], modules), ['universal', 'claude-code']), 'npx bmad-method install -m method,cis -t universal,claude-code -y')
+  assert.equal(repeatCommand(chosenModules([], modules), ['universal']), 'npx bmad-method install -m core-tools -t universal -y')
+})
+
+test('a folder from --modules becomes a custom module after the listed ones, installed whole', async () => {
+  const modules = await loadModules()
+  const chosen = chosenModules(['acme/mods/skills/widgets', 'method'], modules)
+  assert.deepEqual(chosen.map((module) => module.code), ['core-tools', 'method', 'acme/mods/skills/widgets'])
+  assert.equal(chosen[2].custom, true)
+  assert.deepEqual(moduleCalls(chosen, null).at(-1), { source: 'acme/mods/skills/widgets', skills: ['*'], label: 'acme/mods/skills/widgets' })
+  assert.equal(repeatCommand(chosen, ['claude-code']), 'npx bmad-method install -m method,acme/mods/skills/widgets -t claude-code -y')
+})
+
+test('versionMajor reads the leading major version', () => {
+  assert.equal(versionMajor('6.13.0-next'), '6')
+  assert.equal(versionMajor('7.0.0'), '7')
+  assert.equal(versionMajor('6'), '6')
+  assert.equal(versionMajor('v6.1.0'), '6')
+  assert.equal(versionMajor(''), null)
+  assert.equal(versionMajor('unknown'), null)
+})
+
+test('a code picked with a ref comes from that branch, is re-added even when installed, and repeats with its ref', () => {
+  const chosen = chosenModules(['core-tools#dev', 'method#dev', 'cis'], modules)
+  assert.deepEqual(chosen.map((module) => [module.code, module.source]), [
+    ['core-tools', 'bmad-code-org/BMAD-METHOD/skills/core-tools#dev'],
+    ['method', 'bmad-code-org/BMAD-METHOD/skills/method#dev'],
+    ['cis', 'bmad-code-org/bmad-module-creative-intelligence-suite'],
+  ])
+  const installed = statusOf()
+  for (const entry of installed.modules) entry.absent_skills = []
+  assert.deepEqual(moduleCalls(chosen, installed).map((call) => call.label), ['BMad Core Tools', 'BMad Method', 'BMad Creative Intelligence Suite'])
+  assert.deepEqual(moduleCalls(chosenModules(['method'], modules), installed), [])
+  assert.equal(repeatCommand(chosen, ['claude-code']), 'npx bmad-method install -m core-tools#dev,method#dev,cis -t claude-code -y')
+})
+
+test('a picked module brings the modules it requires, unless they were picked too', () => {
+  assert.deepEqual(requiredCodes(['bmad-loop'], modules), ['method'])
+  assert.deepEqual(requiredCodes(['bmad-loop', 'method#dev'], modules), [])
+  assert.deepEqual(requiredCodes(['cis'], modules), [])
+  assert.deepEqual(chosenModules(['bmad-loop'], modules).map((module) => module.code), ['core-tools', 'method', 'bmad-loop'])
+  const withRef = chosenModules(['bmad-loop', 'method#dev'], modules)
+  assert.equal(withRef[1].source, 'bmad-code-org/BMAD-METHOD/skills/method#dev')
+})
+
+test('repeatCommand quotes a module list a shell would split', () => {
+  const chosen = chosenModules(['/work/My Modules/widgets'], modules)
+  assert.equal(repeatCommand(chosen, ['claude-code']), "npx bmad-method install -m '/work/My Modules/widgets' -t claude-code -y")
+  assert.equal(repeatCommand(chosenModules(["/work/o'brien"], modules), ['codex']), "npx bmad-method install -m '/work/o'\\''brien' -t codex -y")
+  assert.equal(repeatCommand(chosenModules(['method#feature/x', 'acme/mods'], modules), ['codex']), 'npx bmad-method install -m method#feature/x,acme/mods -t codex -y')
+})
+
+test('chosenModules gives a ref with a slash to the listed module', () => {
+  const chosen = chosenModules(['method#feature/install'], modules)
+  assert.deepEqual(chosen.map((module) => module.source), [
+    'bmad-code-org/BMAD-METHOD/skills/core-tools',
+    'bmad-code-org/BMAD-METHOD/skills/method#feature/install',
+  ])
 })

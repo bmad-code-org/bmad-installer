@@ -1,13 +1,12 @@
 import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { homedir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { parse } from 'yaml'
 import { packageRoot } from './version.js'
 
-/** @typedef {{ code: string, name: string, description: string, default?: boolean, skills: string[] }} Bundle */
-/** @typedef {{ code: string, name: string, description: string, source: string, record: string, aliases?: string[], always?: boolean, default?: boolean, deprecated?: string, message?: string, bundles?: Bundle[] }} ModuleDefinition */
-/** @typedef {{ code: string, bundles: string[] | null }} ModuleChoice */
+/** @typedef {{ code: string, name: string, description: string, source: string, record: string, aliases?: string[], always?: boolean, default?: boolean, deprecated?: string, requires?: string[], custom?: boolean, ref?: string }} ModuleDefinition */
 
-const SOURCE_PATTERN = /^[\w.-]+\/[\w.-]+$/
+const SOURCE_PATTERN = /^[\w.-]+\/[\w.-]+(\/[\w.-]+)*$/
 const SOURCE_OVERRIDE = 'BMAD_INSTALLER_SOURCE_OVERRIDE'
 
 export class ModulesError extends Error {
@@ -15,6 +14,19 @@ export class ModulesError extends Error {
   constructor(message) {
     super(message)
     this.name = 'ModulesError'
+  }
+}
+
+export class UnknownModuleError extends ModulesError {
+  /**
+   * @param {string} code
+   * @param {ModuleDefinition[]} modules
+   */
+  constructor(code, modules) {
+    super(`unknown module "${code}"`)
+    this.name = 'UnknownModuleError'
+    this.code = code
+    this.known = modules.filter((module) => !module.always).map((module) => module.code).join(', ')
   }
 }
 
@@ -33,29 +45,6 @@ function requireText(value, where, field) {
 
 /**
  * @param {any} entry
- * @param {string} where
- * @returns {Bundle}
- */
-function validateBundle(entry, where) {
-  const code = requireText(entry?.code, where, 'code')
-  const at = `${where} bundle "${code}"`
-  const skills = entry.skills
-  if (!Array.isArray(skills) || skills.length === 0) {
-    throw new ModulesError(`${at}: skills must be a non-empty array`)
-  }
-  /** @type {Bundle} */
-  const bundle = {
-    code,
-    name: requireText(entry.name, at, 'name'),
-    description: requireText(entry.description, at, 'description'),
-    skills: skills.map((skill, index) => requireText(skill, at, `skills[${index}]`)),
-  }
-  if (entry.default === true) bundle.default = true
-  return bundle
-}
-
-/**
- * @param {any} entry
  * @param {number} index
  * @param {Set<string>} taken
  * @returns {ModuleDefinition}
@@ -65,7 +54,7 @@ function validateModule(entry, index, taken) {
   const where = `module "${code}"`
   const source = requireText(entry.source, where, 'source')
   if (!SOURCE_PATTERN.test(source)) {
-    throw new ModulesError(`${where}: source must look like owner/repo`)
+    throw new ModulesError(`${where}: source must look like owner/repo or owner/repo/path/to/folder`)
   }
   /** @type {ModuleDefinition} */
   const module = {
@@ -84,14 +73,9 @@ function validateModule(entry, index, taken) {
   if (entry.always === true) module.always = true
   if (entry.default === true) module.default = true
   if (entry.deprecated !== undefined) module.deprecated = requireText(entry.deprecated, where, 'deprecated')
-  if (entry.message !== undefined) module.message = requireText(entry.message, where, 'message')
-  if (entry.bundles !== undefined) {
-    if (!Array.isArray(entry.bundles)) throw new ModulesError(`${where}: bundles must be an array`)
-    const bundles = entry.bundles.map((/** @type {any} */ bundle) => validateBundle(bundle, where))
-    if (new Set(bundles.map((/** @type {Bundle} */ bundle) => bundle.code)).size !== bundles.length) {
-      throw new ModulesError(`${where}: bundle codes must be unique`)
-    }
-    module.bundles = bundles
+  if (entry.requires !== undefined) {
+    if (!Array.isArray(entry.requires)) throw new ModulesError(`${where}: requires must be a list of module codes`)
+    module.requires = entry.requires.map((/** @type {unknown} */ code) => requireText(code, where, 'requires'))
   }
   return module
 }
@@ -109,8 +93,41 @@ export async function loadModules(filePath = join(packageRoot, 'modules.yaml')) 
   /** @type {Set<string>} */
   const taken = new Set()
   const modules = entries.map((entry, index) => validateModule(entry, index, taken))
+  for (const module of modules) {
+    for (const code of module.requires ?? []) {
+      if (!modules.some((other) => other.code === code)) {
+        throw new ModulesError(`module "${module.code}": requires names "${code}", which is not a module code`)
+      }
+    }
+  }
   const override = process.env[SOURCE_OVERRIDE]
-  return override ? modules.map((module) => ({ ...module, source: override })) : modules
+  if (!override) return modules
+  const repo = repoOf((modules.find((module) => module.always) ?? modules[0]).source)
+  return modules.map((module) => ({ ...module, source: overrideSource(module.source, override, repo) }))
+}
+
+/**
+ * @param {string} source
+ * @returns {string}
+ */
+export function repoOf(source) {
+  return source.split('#')[0].split('/').slice(0, 2).join('/')
+}
+
+/**
+ * Swaps the repository of a module from `repo` for `override` and keeps the module's folder, so a
+ * local checkout or a ref such as `owner/repo#dev` stands in for the published one. A `#ref` in
+ * the override goes after the folder, where the skills CLI reads it.
+ * @param {string} source
+ * @param {string} override
+ * @param {string} repo
+ * @returns {string}
+ */
+export function overrideSource(source, override, repo) {
+  if (repoOf(source) !== repo) return source
+  const [base, ref] = override.split('#')
+  const folder = source.split('/').slice(2).join('/')
+  return `${base.replace(/\/+$/, '')}${folder ? `/${folder}` : ''}${ref ? `#${ref}` : ''}`
 }
 
 /**
@@ -123,102 +140,82 @@ export function findModule(modules, codeOrAlias) {
 }
 
 /**
- * @param {ModuleDefinition} module
- * @param {(bundle: Bundle) => boolean} filter
- * @returns {string[]}
+ * A module code never holds a slash; anything that does before its `#ref` is a source the skills
+ * CLI can install from: `owner/repo/folder#ref`, a git URL or a local path. A ref may hold one.
+ * @param {string} token
  */
-export function bundleCodes(module, filter) {
-  return (module.bundles ?? []).filter(filter).map((bundle) => bundle.code)
+export function isModuleSource(token) {
+  const base = token.split('#')[0]
+  return base.includes('/') || base.includes('\\') || base === '.' || base === '~'
 }
 
 /**
- * @param {ModuleDefinition} module
- * @param {string} list
- * @returns {string[]}
+ * A local path is made absolute against the shell's folder, since the skills CLI runs in the project.
+ * @param {string} source
+ * @param {string} [cwd]
+ * @returns {string}
  */
-function parseBundleList(module, list) {
-  return list.split('+').map((raw) => {
-    const code = raw.trim()
-    if (!(module.bundles ?? []).some((bundle) => bundle.code === code)) {
-      throw new ModulesError(`unknown bundle "${code}" for module "${module.code}"`)
-    }
-    return code
-  })
+export function normalizeSource(source, cwd = process.cwd()) {
+  if (/^~([\\/]|$)/.test(source)) return join(homedir(), source.slice(1))
+  if (/^\.{1,2}([\\/]|$)/.test(source)) return resolve(cwd, source)
+  return source
 }
 
 /**
+ * The source on a branch or tag. A ref already in the source is replaced.
+ * @param {string} source
+ * @param {string} ref
+ * @returns {string}
+ */
+export function sourceAtRef(source, ref) {
+  return `${source.split('#')[0]}#${ref}`
+}
+
+/**
+ * Module codes and aliases from modules.yaml, each with an optional `#ref` for a branch or tag,
+ * and sources for modules not in it. An alias comes back as its code.
  * @param {string} value
  * @param {ModuleDefinition[]} modules
- * @returns {ModuleChoice[]}
+ * @returns {string[]}
  */
 export function parseModulesFlag(value, modules) {
-  /** @type {ModuleChoice[]} */
-  const choices = []
+  /** @type {string[]} */
+  const codes = []
   for (const token of value.split(',')) {
-    const trimmed = token.trim()
-    if (trimmed === '') continue
-    const separator = trimmed.indexOf(':')
-    const codeOrAlias = (separator === -1 ? trimmed : trimmed.slice(0, separator)).trim()
-    const module = findModule(modules, codeOrAlias)
-    if (!module) throw new ModulesError(`unknown module "${codeOrAlias}"`)
-    const listed = separator === -1
-      ? bundleCodes(module, (bundle) => bundle.default === true)
-      : parseBundleList(module, trimmed.slice(separator + 1))
-    const existing = choices.find((choice) => choice.code === module.code)
-    if (!existing) choices.push({ code: module.code, bundles: module.bundles ? [...new Set(listed)] : null })
-    else if (existing.bundles) existing.bundles = [...new Set([...existing.bundles, ...listed])]
+    const picked = token.trim()
+    if (picked === '') continue
+    const code = isModuleSource(picked) ? normalizeSource(picked) : listedCode(picked, modules)
+    if (!code) throw new UnknownModuleError(picked, modules)
+    if (!codes.includes(code)) codes.push(code)
   }
-  return choices
+  return codes
+}
+
+/**
+ * @param {string} picked
+ * @param {ModuleDefinition[]} modules
+ * @returns {string | undefined}
+ */
+function listedCode(picked, modules) {
+  const [name, ref] = picked.split('#')
+  const module = findModule(modules, name)
+  if (!module) return undefined
+  return ref ? `${module.code}#${ref}` : module.code
+}
+
+/**
+ * A module from outside modules.yaml, named by where it comes from.
+ * @param {string} source
+ * @returns {ModuleDefinition}
+ */
+export function customModule(source) {
+  return { code: source, name: source, description: '', source, record: '', custom: true }
 }
 
 /**
  * @param {ModuleDefinition[]} modules
- * @returns {ModuleChoice[]}
+ * @returns {string[]}
  */
-export function defaultChoices(modules) {
-  return modules
-    .filter((module) => module.default === true)
-    .map((module) => ({
-      code: module.code,
-      bundles: module.bundles ? bundleCodes(module, (bundle) => bundle.default === true) : null,
-    }))
-}
-
-/**
- * @param {ModuleDefinition} module
- * @param {string[] | null} chosenBundles
- * @param {string[]} recordSkills
- * @returns {{ install: string[], unknown: string[] }}
- */
-export function skillsToInstall(module, chosenBundles, recordSkills) {
-  if (!chosenBundles || !module.bundles) return { install: [...recordSkills], unknown: [] }
-  const chosen = new Set(chosenBundles)
-  /** @type {Set<string>} */
-  const wanted = new Set()
-  for (const bundle of module.bundles) {
-    if (!chosen.has(bundle.code)) continue
-    for (const skill of bundle.skills) wanted.add(skill)
-  }
-  const available = new Set(recordSkills)
-  /** @type {string[]} */
-  const install = []
-  /** @type {string[]} */
-  const unknown = []
-  for (const skill of wanted) (available.has(skill) ? install : unknown).push(skill)
-  return { install, unknown }
-}
-
-/**
- * @param {ModuleDefinition[]} modules
- * @returns {Map<string, ModuleDefinition[]>}
- */
-export function groupBySource(modules) {
-  /** @type {Map<string, ModuleDefinition[]>} */
-  const groups = new Map()
-  for (const module of modules) {
-    const existing = groups.get(module.source)
-    if (existing) existing.push(module)
-    else groups.set(module.source, [module])
-  }
-  return groups
+export function defaultCodes(modules) {
+  return modules.filter((module) => module.default === true).map((module) => module.code)
 }

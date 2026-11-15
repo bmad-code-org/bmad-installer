@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import spawn from 'cross-spawn'
 
-/** @typedef {{ argv: string[], cwd?: string, env?: NodeJS.ProcessEnv, stdio?: 'inherit' | 'pipe', timeoutMs?: number }} RunRequest */
+/** @typedef {{ argv: string[], cwd?: string, env?: NodeJS.ProcessEnv, timeoutMs?: number }} RunRequest */
 /** @typedef {{ code: number | null, stdout: string, stderr: string, timedOut: boolean, error?: string }} RunResult */
 /** @typedef {(request: RunRequest) => Promise<RunResult>} Runner */
 /** @typedef {{ fd: number, read(): Promise<string>, dispose(): Promise<void> }} Capture */
@@ -35,7 +35,7 @@ async function openCapture() {
 }
 
 /**
- * @param {{ argv: string[], cwd?: string, env?: NodeJS.ProcessEnv, stdio: import('node:child_process').StdioOptions, capture: Capture | null, timeoutMs?: number }} request
+ * @param {RunRequest & { capture: Capture }} request
  * @returns {Promise<RunResult>}
  */
 function spawnAndWait(request) {
@@ -48,7 +48,7 @@ function spawnAndWait(request) {
       child = spawn(command, args, {
         cwd: request.cwd,
         env: request.env,
-        stdio: request.stdio,
+        stdio: ['ignore', capture.fd, 'pipe'],
         windowsHide: true,
       })
     } catch (err) {
@@ -77,7 +77,7 @@ function spawnAndWait(request) {
      */
     const settle = async (code, error) => {
       if (timer) clearTimeout(timer)
-      const stdout = capture ? await capture.read() : ''
+      const stdout = await capture.read()
       resolve(error === undefined
         ? { code, stdout, stderr, timedOut }
         : { code, stdout, stderr, timedOut, error })
@@ -98,26 +98,19 @@ export function createRunner(options = {}) {
 
   /** @type {Runner} */
   return async function run(request) {
-    const { argv, cwd, env, stdio = 'pipe', timeoutMs } = request
-    const inherit = stdio === 'inherit'
-
+    const { argv, cwd } = request
     if (debug) log(`$ ${cwd ?? process.cwd()}: ${argv.join(' ')}`)
 
-    /** @type {Capture | null} */
-    let capture = null
-    /** @type {import('node:child_process').StdioOptions} */
-    let childStdio = 'inherit'
-    if (!inherit) {
-      try {
-        capture = await openCapture()
-      } catch (err) {
-        return { code: null, stdout: '', stderr: '', timedOut: false, error: String(err) }
-      }
-      childStdio = ['ignore', capture.fd, 'pipe']
+    /** @type {Capture} */
+    let capture
+    try {
+      capture = await openCapture()
+    } catch (err) {
+      return { code: null, stdout: '', stderr: '', timedOut: false, error: String(err) }
     }
 
     try {
-      const result = await spawnAndWait({ argv, cwd, env, stdio: childStdio, capture, timeoutMs })
+      const result = await spawnAndWait({ ...request, capture })
       if (debug) {
         log(`exit ${result.code}`)
         if (result.stdout) log(result.stdout)
@@ -125,7 +118,7 @@ export function createRunner(options = {}) {
       }
       return result
     } finally {
-      await capture?.dispose()
+      await capture.dispose()
     }
   }
 }

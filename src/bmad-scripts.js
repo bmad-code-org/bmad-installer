@@ -28,11 +28,13 @@ import { dirname, join } from 'node:path'
  *   unmet_requirements: UnmetEntry[],
  *   unmet_recommendations: UnmetEntry[],
  *   problems: Problem[],
- *   legacy_leftovers: string[],
  *   current: boolean,
  *   next: string | null
  * }} StatusReport
  */
+
+/** The `next` a status report carries when all that is left is running setup. */
+export const SETUP_NEXT = 'bmad setup'
 
 export class BmadScriptsError extends Error {
   /**

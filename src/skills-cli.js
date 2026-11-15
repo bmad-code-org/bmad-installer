@@ -4,19 +4,10 @@ import { createRequire } from 'node:module'
 /** @typedef {import('./run.js').Runner} Runner */
 /** @typedef {{ name?: string, status: 'installed' | 'failed' | 'skipped', error?: string, reason?: string, path?: string, agents?: string[], mode?: string }} AddResult */
 /** @typedef {{ name: string, path: string, scope: 'project' | 'global', agents: string[], source: string | null }} ListedSkill */
-/** @typedef {{ source: string, skills: string[], agents?: string[] | null }} AddRequest */
+/** @typedef {{ source: string, skills: string[], agents: string[] }} AddRequest */
 
 export class SkillsCliError extends Error {
-  /**
-   * @param {string} message
-   * @param {{ code?: number | null, stderr?: string }} [details]
-   */
-  constructor(message, details = {}) {
-    super(message)
-    this.name = 'SkillsCliError'
-    this.code = details.code ?? null
-    this.stderr = details.stderr ?? ''
-  }
+  name = 'SkillsCliError'
 }
 
 /** @returns {string} */
@@ -38,21 +29,15 @@ export function childEnv(base, options) {
 /**
  * `-s` and `-a` swallow every following non-dash token, so `--metadata` comes after them.
  * @param {AddRequest} request
- * @param {{ interactive: boolean, copy: boolean, metadata: object }} options
+ * @param {{ copy: boolean, metadata: object }} options
  * @returns {string[]}
  */
 export function addArgv(request, options) {
-  const argv = [process.execPath, skillsCliBin(), 'add', request.source, '-s', ...request.skills]
-  if (Array.isArray(request.agents) && request.agents.length > 0) argv.push('-a', ...request.agents)
+  const argv = [process.execPath, skillsCliBin(), 'add', request.source, '-s', ...request.skills, '-a', ...request.agents]
   argv.push('--metadata', JSON.stringify(options.metadata))
   if (options.copy) argv.push('--copy')
-  if (!options.interactive) argv.push('-y', '--json')
+  argv.push('-y', '--json')
   return argv
-}
-
-/** @returns {string[]} */
-export function updateArgv() {
-  return [process.execPath, skillsCliBin(), 'update', '-p', '-y']
 }
 
 /** @returns {string[]} */
@@ -108,26 +93,15 @@ export function createSkillsCli(deps) {
   const { copy, metadata } = deps
 
   return {
-    /** @param {AddRequest & { cwd: string }} request */
-    async addInteractive(request) {
-      const result = await deps.runner({
-        argv: addArgv(request, { interactive: true, copy, metadata }),
-        cwd: request.cwd,
-        env,
-        stdio: 'inherit',
-      })
-      return { code: result.code }
-    },
     /**
      * @param {AddRequest & { cwd: string }} request
      * @returns {Promise<AddResult[]>}
      */
     async add(request) {
       const result = await deps.runner({
-        argv: addArgv(request, { interactive: false, copy, metadata }),
+        argv: addArgv(request, { copy, metadata }),
         cwd: request.cwd,
         env,
-        stdio: 'pipe',
       })
       try {
         return parseAddResults(result.stdout)
@@ -135,17 +109,12 @@ export function createSkillsCli(deps) {
         return [{ status: 'failed', error: failureReason(result) }]
       }
     },
-    /** @param {{ cwd: string }} options */
-    async update(options) {
-      const result = await deps.runner({ argv: updateArgv(), cwd: options.cwd, env, stdio: 'inherit' })
-      return { code: result.code }
-    },
     /**
      * @param {{ cwd: string }} options
      * @returns {Promise<ListedSkill[]>}
      */
     async list(options) {
-      const result = await deps.runner({ argv: listArgv(), cwd: options.cwd, env, stdio: 'pipe' })
+      const result = await deps.runner({ argv: listArgv(), cwd: options.cwd, env })
       if (result.code !== 0 && result.stdout.trim() === '') return []
       return parseListResults(result.stdout)
     },

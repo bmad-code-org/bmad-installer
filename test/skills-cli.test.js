@@ -10,7 +10,6 @@ import {
   parseAddResults,
   parseListResults,
   skillsCliBin,
-  updateArgv,
 } from '../src/skills-cli.js'
 
 /** @typedef {import('../src/run.js').RunRequest} RunRequest */
@@ -54,10 +53,10 @@ test('skillsCliBin resolves the shipped skills CLI entry point', () => {
   assert.ok(bin.endsWith(join('skills', 'bin', 'cli.mjs')))
 })
 
-test('addArgv builds a headless call with metadata after the swallowing flags', () => {
+test('addArgv builds a headless call with -a and metadata after the swallowing flags', () => {
   const argv = addArgv(
-    { source: 'owner/repo', skills: ['bmad', 'bmod-method'] },
-    { interactive: false, copy: false, metadata },
+    { source: 'owner/repo', skills: ['bmad', 'bmod-method'], agents: ['claude-code', 'codex'] },
+    { copy: true, metadata },
   )
   assert.deepEqual(argv, [
     process.execPath,
@@ -67,25 +66,6 @@ test('addArgv builds a headless call with metadata after the swallowing flags', 
     '-s',
     'bmad',
     'bmod-method',
-    '--metadata',
-    JSON.stringify(metadata),
-    '-y',
-    '--json',
-  ])
-})
-
-test('addArgv adds -a before --metadata when agents are known', () => {
-  const argv = addArgv(
-    { source: 'owner/repo', skills: ['bmad'], agents: ['claude-code', 'codex'] },
-    { interactive: false, copy: true, metadata },
-  )
-  assert.deepEqual(argv, [
-    process.execPath,
-    bin,
-    'add',
-    'owner/repo',
-    '-s',
-    'bmad',
     '-a',
     'claude-code',
     'codex',
@@ -95,36 +75,9 @@ test('addArgv adds -a before --metadata when agents are known', () => {
     '-y',
     '--json',
   ])
-  assert.ok(argv.indexOf('--metadata') > argv.indexOf('codex'))
 })
 
-test('addArgv omits -a for null and empty agent lists', () => {
-  const base = { interactive: false, copy: false, metadata }
-  assert.ok(!addArgv({ source: 'owner/repo', skills: ['bmad'], agents: null }, base).includes('-a'))
-  assert.ok(!addArgv({ source: 'owner/repo', skills: ['bmad'], agents: [] }, base).includes('-a'))
-})
-
-test('addArgv interactive omits -y, --json and -a', () => {
-  const argv = addArgv(
-    { source: 'owner/repo', skills: ['bmad'], agents: ['claude-code'] },
-    { interactive: true, copy: false, metadata },
-  )
-  assert.deepEqual(argv, [
-    process.execPath,
-    bin,
-    'add',
-    'owner/repo',
-    '-s',
-    'bmad',
-    '-a',
-    'claude-code',
-    '--metadata',
-    JSON.stringify(metadata),
-  ])
-})
-
-test('updateArgv and listArgv are fixed', () => {
-  assert.deepEqual(updateArgv(), [process.execPath, bin, 'update', '-p', '-y'])
+test('listArgv is fixed', () => {
   assert.deepEqual(listArgv(), [process.execPath, bin, 'list', '--json'])
 })
 
@@ -166,50 +119,33 @@ test('parseListResults reads listed skills and an empty list', () => {
   assert.deepEqual(parseListResults('[]'), [])
 })
 
-test('add runs piped and returns the parsed results', async () => {
+test('add returns the parsed results', async () => {
   const stdout = JSON.stringify([{ name: 'bmad', status: 'installed' }])
   const { cli, calls } = fakeCli([{ stdout }])
-  const results = await cli.add({ source: 'owner/repo', skills: ['bmad'], cwd: '/proj' })
+  const results = await cli.add({ source: 'owner/repo', skills: ['bmad'], agents: ['claude-code'], cwd: '/proj' })
 
   assert.deepEqual(results, [{ name: 'bmad', status: 'installed' }])
   assert.equal(calls[0].cwd, '/proj')
-  assert.equal(calls[0].stdio, 'pipe')
   assert.ok(calls[0].argv.includes('--json'))
 })
 
 test('add turns unparsable stdout into one failure with the last stderr line', async () => {
   const { cli } = fakeCli([{ code: 1, stdout: '', stderr: 'Invalid agents: nope\nValid agents: claude-code\n' }])
-  const results = await cli.add({ source: 'owner/repo', skills: ['bmad'], cwd: '/proj' })
+  const results = await cli.add({ source: 'owner/repo', skills: ['bmad'], agents: ['claude-code'], cwd: '/proj' })
   assert.deepEqual(results, [{ status: 'failed', error: 'Valid agents: claude-code' }])
 })
 
 test('add falls back to the exit code when stderr is empty', async () => {
   const { cli } = fakeCli([{ code: 7, stdout: 'garbage', stderr: '   \n\n' }])
-  const results = await cli.add({ source: 'owner/repo', skills: ['bmad'], cwd: '/proj' })
+  const results = await cli.add({ source: 'owner/repo', skills: ['bmad'], agents: ['claude-code'], cwd: '/proj' })
   assert.deepEqual(results, [{ status: 'failed', error: 'skills CLI exited with code 7' }])
 })
 
 test('add passes DO_NOT_TRACK and --copy through from the factory', async () => {
   const { cli, calls } = fakeCli([{ stdout: '[]' }], { telemetry: false, copy: true })
-  await cli.add({ source: 'owner/repo', skills: ['bmad'], cwd: '/proj' })
+  await cli.add({ source: 'owner/repo', skills: ['bmad'], agents: ['claude-code'], cwd: '/proj' })
   assert.equal(calls[0].env?.DO_NOT_TRACK, '1')
   assert.ok(calls[0].argv.includes('--copy'))
-})
-
-test('addInteractive inherits stdio and returns the exit code', async () => {
-  const { cli, calls } = fakeCli([{ code: 0 }])
-  const result = await cli.addInteractive({ source: 'owner/repo', skills: ['bmad'], cwd: '/proj' })
-  assert.deepEqual(result, { code: 0 })
-  assert.equal(calls[0].stdio, 'inherit')
-  assert.ok(!calls[0].argv.includes('--json'))
-})
-
-test('update inherits stdio and returns the exit code', async () => {
-  const { cli, calls } = fakeCli([{ code: 1 }])
-  const result = await cli.update({ cwd: '/proj' })
-  assert.deepEqual(result, { code: 1 })
-  assert.equal(calls[0].stdio, 'inherit')
-  assert.deepEqual(calls[0].argv, updateArgv())
 })
 
 test('list returns [] when the CLI fails with empty stdout', async () => {
@@ -228,8 +164,7 @@ test('list throws rather than claim an empty project when stdout cannot be read'
 
 test('list parses the listed skills', async () => {
   const stdout = JSON.stringify([{ name: 'bmad', path: '/p/bmad', scope: 'project', agents: [], source: null }])
-  const { cli, calls } = fakeCli([{ stdout }])
+  const { cli } = fakeCli([{ stdout }])
   const listed = await cli.list({ cwd: '/proj' })
   assert.equal(listed[0].name, 'bmad')
-  assert.equal(calls[0].stdio, 'pipe')
 })

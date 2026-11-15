@@ -72,7 +72,7 @@ test('parseStatus reads the status fixture', () => {
   assert.equal(report.modules.length, 2)
   assert.deepEqual(report.modules[0].skills, ['bmad'])
   assert.equal(report.modules[1].module, 'method')
-  assert.equal(report.modules[1].absent_skills.length, 22)
+  assert.equal(report.modules[1].absent_skills.length, 15)
 })
 
 test('parseStatus sees the moved skill in the after-prd fixture', () => {

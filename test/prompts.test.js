@@ -2,7 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { loadMessages } from '../src/messages.js'
 import { loadModules } from '../src/modules.js'
-import { bundlePicker, modulePicker } from '../src/prompts.js'
+import { loadAgents } from '../src/agents.js'
+import { agentPicker, modulePicker } from '../src/prompts.js'
 
 /** @typedef {import('../src/modules.js').ModuleDefinition} ModuleDefinition */
 
@@ -21,13 +22,13 @@ const fresh = { installedCodes: /** @type {string[]} */ ([]), installedVersions:
 
 test('the module picker hides the always modules', () => {
   const picker = modulePicker(messages, modules, fresh)
-  assert.deepEqual(picker.options.map((option) => option.value), ['method', 'cis'])
+  assert.deepEqual(picker.options.map((option) => option.value), ['method', 'toolsmith', 'founder', 'tea', 'bmad-loop', 'cis'])
   assert.equal(picker.options.some((option) => option.value === 'core-tools'), false)
 })
 
 test('a fresh install arrives with the default modules ticked', () => {
   const picker = modulePicker(messages, modules, fresh)
-  assert.deepEqual(picker.initialValues, ['method'])
+  assert.deepEqual(picker.initialValues, ['method', 'toolsmith'])
   assert.equal(picker.options[0].label, 'BMad Method')
   assert.equal(picker.options[0].hint, method.description)
 })
@@ -40,7 +41,7 @@ test('an existing install ticks what is installed and labels its version', () =>
 
   assert.deepEqual(picker.initialValues, ['cis'])
   assert.equal(picker.options[0].label, 'BMad Method')
-  assert.equal(picker.options[1].label, `${must('cis').name} ${messages.installedSuffix.replace('{version}', '6.13.0-next')}`)
+  assert.equal(picker.options.find((option) => option.value === 'cis')?.label, `${must('cis').name} ${messages.installedSuffix.replace('{version}', '6.13.0-next')}`)
 })
 
 test('an installed module with no known version gets the plain suffix', () => {
@@ -49,22 +50,22 @@ test('an installed module with no known version gets the plain suffix', () => {
   assert.deepEqual(picker.initialValues, ['method'])
 })
 
-test('the bundle picker offers every bundle and ticks the default ones', () => {
-  const picker = bundlePicker(method, { installedSkills: [] })
-  assert.deepEqual(picker.options.map((option) => option.value), ['planning', 'build', 'agents'])
-  assert.deepEqual(picker.initialValues, ['planning', 'build', 'agents'])
-})
+test('the agent picker lists every agent by name, preselected first, then alphabetically', async () => {
+  const agents = await loadAgents()
+  const picker = agentPicker(agents, { initial: ['cursor', 'augment'] })
+  const values = picker.options.map((option) => option.value)
+  const rest = agents
+    .filter((agent) => !['universal', 'cursor', 'augment'].includes(agent.id))
+    .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+    .map((agent) => agent.id)
 
-test('a bundle whose skills are all installed is ticked even when it is not a default', () => {
-  const extra = { code: 'extra', name: 'Extra', description: 'Not a default', skills: ['bmad-walkthrough'] }
-  const withExtra = { ...method, bundles: [...(method.bundles ?? []), extra] }
-  const picker = bundlePicker(withExtra, { installedSkills: extra.skills })
-  assert.deepEqual(picker.initialValues, ['planning', 'build', 'agents', 'extra'])
-
-  const none = bundlePicker(withExtra, { installedSkills: [] })
-  assert.equal(none.initialValues.includes('extra'), false)
-})
-
-test('a module without bundles offers nothing', () => {
-  assert.deepEqual(bundlePicker(must('cis'), { installedSkills: [] }), { options: [], initialValues: [] })
+  assert.deepEqual(values, ['augment', 'cursor', ...rest])
+  assert.ok(values.indexOf('cline') < values.indexOf('bob') && values.indexOf('bob') < values.indexOf('openclaw'), 'IBM Bob and OpenClaw sort by name')
+  assert.ok(values.includes('codex') && values.includes('gemini-cli'))
+  assert.equal(values.includes('universal'), false)
+  assert.equal(values.length, agents.length - 1)
+  assert.deepEqual(picker.initialValues, ['cursor', 'augment'])
+  assert.equal(picker.options[1].label, 'Cursor')
+  assert.equal(picker.options[1].hint, '.agents/skills')
+  assert.equal(picker.options[0].label, 'Augment')
 })
