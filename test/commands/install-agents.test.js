@@ -4,7 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { AgentsError } from '../../src/agents.js'
 import { install } from '../../src/commands/install.js'
-import { savedAgentPick, saveAgentPick, skillsLockPath } from '../../src/harness.js'
+import { savedAgentPick, saveAgentPick, skillsLockPath } from '../../src/agent-picks.js'
 import {
   HOME,
   RECORDS,

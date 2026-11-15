@@ -6,5 +6,6 @@
 - Every `skills add` runs headless (`-y --json`) with `-a` from the installer's own agent choice. Never hand the terminal to the skills CLI.
 - `skills` is a runtime dependency spawned through its bin, never `npx skills@1` (npx can reuse a stale cached version that lacks `add --json`).
 - Never assume `.agents/skills`. A single-agent install copies into that agent's folder only; read skill locations from `skills list --json`.
-- Screens and messages come from `modules.yaml` and `messages.yaml`.
+- Screens and messages come from `modules.yaml` and `messages.yaml`. The `--help` text and the usage errors are the exception: they live with the flags in `src/cli.js`.
+- `npm run check` fails on unused locals and parameters. Delete dead code, do not prefix it away.
 - Check claims about the skills CLI against its shipped bundle in `node_modules/skills`, not its docs.

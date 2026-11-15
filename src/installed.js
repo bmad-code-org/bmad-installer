@@ -32,17 +32,8 @@ export async function inspectInstall(dir, skillsCli) {
  * @returns {string[]}
  */
 export function installedModuleCodes(state, modules) {
-  return modules.filter((module) => hasSkills(state, [module.record])).map((module) => module.code)
-}
-
-/**
- * @param {InstalledState} state
- * @param {string[]} names
- * @returns {boolean}
- */
-export function hasSkills(state, names) {
   const installed = new Set(state.skills.map((skill) => skill.name))
-  return names.every((name) => installed.has(name))
+  return modules.filter((module) => installed.has(module.record)).map((module) => module.code)
 }
 
 /** @param {string} path */

@@ -8,7 +8,7 @@ import { packageRoot } from './version.js'
 /** @typedef {{ skillsVersion: string, agents: Agent[] }} AgentsFile */
 /** @typedef {{ home: string, project: string, exists: (path: string) => boolean }} DetectContext */
 
-export const UNIVERSAL_DIR = '.agents/skills'
+const UNIVERSAL_DIR = '.agents/skills'
 export const UNIVERSAL_AGENT = 'universal'
 
 export class AgentsError extends Error {

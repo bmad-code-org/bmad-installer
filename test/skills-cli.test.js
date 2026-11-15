@@ -119,14 +119,13 @@ test('parseListResults reads listed skills and an empty list', () => {
   assert.deepEqual(parseListResults('[]'), [])
 })
 
-test('add runs piped and returns the parsed results', async () => {
+test('add returns the parsed results', async () => {
   const stdout = JSON.stringify([{ name: 'bmad', status: 'installed' }])
   const { cli, calls } = fakeCli([{ stdout }])
   const results = await cli.add({ source: 'owner/repo', skills: ['bmad'], agents: ['claude-code'], cwd: '/proj' })
 
   assert.deepEqual(results, [{ name: 'bmad', status: 'installed' }])
   assert.equal(calls[0].cwd, '/proj')
-  assert.equal(calls[0].stdio, 'pipe')
   assert.ok(calls[0].argv.includes('--json'))
 })
 
@@ -165,8 +164,7 @@ test('list throws rather than claim an empty project when stdout cannot be read'
 
 test('list parses the listed skills', async () => {
   const stdout = JSON.stringify([{ name: 'bmad', path: '/p/bmad', scope: 'project', agents: [], source: null }])
-  const { cli, calls } = fakeCli([{ stdout }])
+  const { cli } = fakeCli([{ stdout }])
   const listed = await cli.list({ cwd: '/proj' })
   assert.equal(listed[0].name, 'bmad')
-  assert.equal(calls[0].stdio, 'pipe')
 })

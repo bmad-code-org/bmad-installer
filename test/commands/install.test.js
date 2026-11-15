@@ -1,6 +1,5 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { join } from 'node:path'
 import { install } from '../../src/commands/install.js'
 import {
   RECORDS,
@@ -204,4 +203,25 @@ test('--modules with a folder installs that module whole next to the listed ones
     ['bmad-code-org/BMAD-METHOD/skills/method', ['*']],
     ['acme/mods/skills/widgets', ['*']],
   ])
+})
+
+test('a module from a folder gets its migrations listed when the install crosses a major version', async (t) => {
+  const dir = await tempDir(t)
+  const before = statusOf()
+  before.modules.push({ ...before.modules[1], module: 'widgets', folder: 'bmod-widgets', version: '6.2.0' })
+  const after = structuredClone(before)
+  after.modules[2].version = '7.0.0'
+  const { prompts, said } = fakePrompts()
+  const { cli } = fakeSkillsCli({ lists: [[listed('bmad')], RECORDS.map(listed)] })
+  const { scripts } = fakeBmadScripts({
+    statuses: [before, after],
+    migrations: [{ module: 'widgets', path: 'w.toml', file: '/p/w.toml', from: '6', to: '7', title: 'Move widget files' }],
+  })
+
+  await install(
+    options({ directory: dir, yes: true, modules: 'acme/mods/skills/widgets' }),
+    makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }),
+  )
+
+  assert.ok(said.notes.some((note) => note.includes('Move widget files (widgets, 6 to 7)')), said.notes.join('\n---\n'))
 })

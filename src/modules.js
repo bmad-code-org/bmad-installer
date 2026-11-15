@@ -99,7 +99,7 @@ export async function loadModules(filePath = join(packageRoot, 'modules.yaml')) 
  * @param {string} source
  * @returns {string}
  */
-export function repoOf(source) {
+function repoOf(source) {
   return source.split('/').slice(0, 2).join('/')
 }
 

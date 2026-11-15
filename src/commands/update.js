@@ -1,26 +1,50 @@
 import { resolve } from 'node:path'
-import { UNIVERSAL_AGENT, agentsHolding, detectContext, sharedFolderHolds } from '../agents.js'
-import { BMAD_SKILL, inspectInstall, installedModuleCodes } from '../installed.js'
+import { inspectInstall, installedModuleCodes } from '../installed.js'
 import { message } from '../messages.js'
 import { findModule } from '../modules.js'
 import { runPreflight } from '../preflight.js'
 import { moduleSourceFromLock, readProjectLock } from '../project-lock.js'
-import { renderMigrations } from '../report.js'
-import { showEnding } from './ending.js'
-import { add } from './install-steps.js'
-import { selectMigrations, versionsByCode } from './install-plan.js'
+import { agentsToUpdate } from './agent-choice.js'
+import { applyCalls } from './apply.js'
+import { endRun } from './ending.js'
+import { versionsByCode } from './install-plan.js'
 
 /** @typedef {import('../bmad-scripts.js').StatusReport} StatusReport */
 /** @typedef {import('../cli.js').CliOptions} CliOptions */
-/** @typedef {import('../skills-cli.js').AddResult} AddResult */
+/** @typedef {import('./deps.js').CommandDeps} CommandDeps */
 /** @typedef {import('./install-plan.js').InstallCall} InstallCall */
-/** @typedef {import('./install.js').CommandDeps} CommandDeps */
 
 /**
- * Re-adds every installed module, one `skills add` each, to the agents already holding BMad here:
- * a module in modules.yaml from its folder with `-s '*'`, any other from the source and ref the
- * project lock recorded for its record, with its own skills named. `npx skills update` re-adds one skill at a time, a fresh
- * clone each, and picks agents from the folders in the project.
+ * One call per installed module: a module in modules.yaml from its folder with `-s '*'`, any
+ * other from the source and ref the project lock recorded for its record, with its own skills
+ * named. `unplaced` names the modules with no source to re-add from.
+ * @param {CommandDeps} deps
+ * @param {string} directory
+ * @param {string[]} codes
+ * @param {StatusReport | null} installed
+ * @returns {Promise<{ calls: InstallCall[], unplaced: string[] }>}
+ */
+async function updateCalls(deps, directory, codes, installed) {
+  const { modules } = deps
+  const listed = modules.filter((module) => module.always || codes.some((code) => findModule(modules, code) === module))
+  /** @type {InstallCall[]} */
+  const calls = listed.map((module) => ({ source: module.source, skills: ['*'], label: module.name }))
+  /** @type {string[]} */
+  const unplaced = []
+  const lock = await readProjectLock(directory)
+  for (const entry of installed?.modules ?? []) {
+    if (findModule(modules, entry.module)) continue
+    const source = moduleSourceFromLock(lock[entry.folder], directory)
+    if (!source) unplaced.push(entry.module)
+    else calls.push({ source, skills: [...new Set([entry.folder, ...entry.skills, ...entry.absent_skills])], label: entry.module })
+  }
+  return { calls, unplaced }
+}
+
+/**
+ * Re-adds every installed module, one `skills add` each, to the agents already holding BMad here.
+ * `npx skills update` re-adds one skill at a time, a fresh clone each, and picks agents from the
+ * folders in the project.
  * `checked` is set when install already ran the preflight checks and hands over to update.
  * @param {CliOptions} options
  * @param {CommandDeps} deps
@@ -33,68 +57,35 @@ export async function update(options, deps, context = {}) {
 
   const directory = resolve(cwd, options.directory ?? cwd)
   const before = await inspectInstall(directory, skillsCli)
-  if (!before.bmadSkillDir) {
+  const installedSkillDir = before.bmadSkillDir
+  if (!installedSkillDir) {
     prompts.fail(message(messages, 'nothingToUpdate'))
     return 1
   }
 
-  const agents = agentsToUpdate(deps, directory)
-  /** @type {AddResult[]} */
-  const failures = []
-  /** @type {string[]} */
-  let unknown = []
   /** @type {StatusReport | null} */
   let wasInstalled = null
-  /** @type {StatusReport | null} */
-  let report = null
-  let bmadSkillDir = before.bmadSkillDir
-  const progress = prompts.startSpinner(message(messages, 'statusSpinner'))
-  try {
-    wasInstalled = await bmadScripts.status(bmadSkillDir, directory).catch(() => null)
-    const codes = wasInstalled ? wasInstalled.modules.map((entry) => entry.module) : installedModuleCodes(before, modules)
-    const known = modules.filter((module) => module.always || codes.some((code) => findModule(modules, code) === module))
-    /** @type {InstallCall[]} */
-    const calls = known.map((module) => ({ source: module.source, skills: ['*'], label: module.name }))
-    const lock = await readProjectLock(directory)
-    for (const entry of wasInstalled?.modules ?? []) {
-      if (findModule(modules, entry.module)) continue
-      const source = moduleSourceFromLock(lock[entry.folder], directory)
-      if (!source) unknown.push(entry.module)
-      else calls.push({ source, skills: [...new Set([entry.folder, ...entry.skills, ...entry.absent_skills])], label: entry.module })
-    }
-    for (const call of calls) {
-      progress.update(message(messages, 'updatingSpinner', { what: call.label }))
-      failures.push(...(await add(call, agents, directory, deps)))
-    }
-    bmadSkillDir = (await inspectInstall(directory, skillsCli)).bmadSkillDir ?? bmadSkillDir
-    progress.update(message(messages, 'statusSpinner'))
-    report = await bmadScripts.status(bmadSkillDir, directory)
-  } finally {
-    progress.stop()
-  }
-  if (unknown.length > 0) prompts.say(message(messages, 'updateNotListed', { modules: unknown.join(', ') }))
-
-  const migrations = selectMigrations(await bmadScripts.migrations(bmadSkillDir), {
-    codes: report.modules.map((entry) => entry.module),
-    before: versionsByCode(wasInstalled),
-    after: versionsByCode(report),
+  /** @type {string[]} */
+  let unplaced = []
+  const { failures, bmadSkillDir, report } = await applyCalls(deps, {
+    directory,
+    agents: agentsToUpdate(deps, directory),
+    spinner: 'updatingSpinner',
+    bmadSkillDir: installedSkillDir,
+    plan: async () => {
+      wasInstalled = await bmadScripts.status(installedSkillDir, directory).catch(() => null)
+      const codes = wasInstalled ? wasInstalled.modules.map((entry) => entry.module) : installedModuleCodes(before, modules)
+      const planned = await updateCalls(deps, directory, codes, wasInstalled)
+      unplaced = planned.unplaced
+      return planned.calls
+    },
   })
-  const migrationText = renderMigrations(migrations, messages)
-  if (migrationText) prompts.showNote(migrationText)
+  if (!bmadSkillDir || !report) {
+    prompts.fail(message(messages, 'nothingToUpdate'))
+    return 1
+  }
+  if (unplaced.length > 0) prompts.say(message(messages, 'updateNotListed', { modules: unplaced.join(', ') }))
 
-  showEnding(deps, { report, failures, directory, updated: true })
+  await endRun(deps, { report, bmadSkillDir, before: versionsByCode(wasInstalled), failures, directory, updated: true })
   return failures.length === 0 ? 0 : 1
-}
-
-/**
- * The agents whose project folder already holds BMad, with `universal` for `.agents/skills`.
- * @param {CommandDeps} deps
- * @param {string} directory
- * @returns {string[]}
- */
-function agentsToUpdate(deps, directory) {
-  const context = (deps.detect ?? detectContext)(directory)
-  const own = agentsHolding(deps.agents, BMAD_SKILL, context)
-  const agents = sharedFolderHolds(BMAD_SKILL, context) ? [UNIVERSAL_AGENT, ...own] : own
-  return agents.length > 0 ? agents : [UNIVERSAL_AGENT]
 }

@@ -51,17 +51,6 @@ test('resolves with code null and an error for a missing executable', async () =
   assert.ok(result.error)
 })
 
-test('inherit stdio returns empty stdout and stderr', async () => {
-  const run = createRunner()
-  const result = await run({
-    argv: [process.execPath, '-e', "process.stdout.write('out'); process.exit(0)"],
-    stdio: 'inherit',
-  })
-  assert.equal(result.code, 0)
-  assert.equal(result.stdout, '')
-  assert.equal(result.stderr, '')
-})
-
 test('debug option logs the command line and the exit', async () => {
   /** @type {string[]} */
   const lines = []

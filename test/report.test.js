@@ -6,8 +6,8 @@ import {
   renderFailures,
   renderMigrations,
   renderStatus,
+  installedLabel,
   renderSummary,
-  versionMajor,
 } from '../src/report.js'
 
 /** @typedef {import('../src/bmad-scripts.js').StatusReport} StatusReport */
@@ -35,6 +35,8 @@ const messages = {
   summaryNextSetup: 'Next: bmad setup',
   summaryNextCurrent: 'Next: ask bmad',
   summaryNextOther: 'Next: {next}',
+  installedSuffix: '(installed {version})',
+  installedSuffixNoVersion: '(installed)',
 }
 
 /** @param {string} name @returns {StatusReport} */
@@ -217,11 +219,15 @@ test('problemLines lists failures first and is empty for a clean report', () => 
   ])
 })
 
-test('versionMajor reads the leading major version', () => {
-  assert.equal(versionMajor('6.13.0-next'), '6')
-  assert.equal(versionMajor('7.0.0'), '7')
-  assert.equal(versionMajor('6'), '6')
-  assert.equal(versionMajor('v6.1.0'), '6')
-  assert.equal(versionMajor(''), null)
-  assert.equal(versionMajor('unknown'), null)
+test('installedLabel names the version when there is one', () => {
+  assert.equal(installedLabel(messages, 'BMad Method', '6.13.0'), 'BMad Method (installed 6.13.0)')
+  assert.equal(installedLabel(messages, 'BMad Method'), 'BMad Method (installed)')
+})
+
+test('the summary names a module reported under its alias', () => {
+  const report = fixture('status-fresh.json')
+  report.modules[1].module = 'bmm'
+  const summary = renderSummary(report, { messages, modules: [{ code: 'method', aliases: ['bmm'], name: 'BMad Method', description: 'd', source: 'o/r', record: 'bmod-method' }], directory: '/p', problems: false })
+  assert.ok(summary.body.includes('Method ('), summary.body)
+  assert.equal(summary.body.includes('bmm'), false)
 })

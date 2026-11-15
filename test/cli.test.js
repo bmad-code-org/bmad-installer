@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { UsageError, helpText, main, parseCli, toolsText } from '../src/cli.js'
+import { UsageError, helpText, main, parseCli, reportError, toolsText } from '../src/cli.js'
+import { BmadScriptsError } from '../src/bmad-scripts.js'
 import { loadAgents } from '../src/agents.js'
 import { loadMessages } from '../src/messages.js'
 import { version } from '../src/version.js'
@@ -198,4 +199,11 @@ test('--list-tools prints one line per agent with its id and skills folder', asy
   assert.equal(lines.length, agents.length)
   const claude = lines.find((line) => line.startsWith('claude-code '))
   assert.ok(claude?.includes('Claude Code') && claude.endsWith('.claude/skills'))
+})
+
+test('a failing bmad script shows what the script wrote, not just its exit code', () => {
+  const { io, err } = fakeIo()
+  const failure = new BmadScriptsError('setup.py --status exited with 1', 'Traceback (most recent call last):\nValueError: bad bmod.toml\n')
+  assert.equal(reportError(failure, io, { debug: false, messages }), 1)
+  assert.equal(err.join(''), 'setup.py --status exited with 1\nTraceback (most recent call last):\nValueError: bad bmod.toml\n')
 })

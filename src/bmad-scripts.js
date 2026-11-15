@@ -33,6 +33,9 @@ import { dirname, join } from 'node:path'
  * }} StatusReport
  */
 
+/** The `next` a status report carries when all that is left is running setup. */
+export const SETUP_NEXT = 'bmad setup'
+
 export class BmadScriptsError extends Error {
   /**
    * @param {string} message

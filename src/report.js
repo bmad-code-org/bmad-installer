@@ -1,4 +1,6 @@
+import { SETUP_NEXT } from './bmad-scripts.js'
 import { message } from './messages.js'
+import { findModule } from './modules.js'
 
 /** @typedef {import('./bmad-scripts.js').StatusReport} StatusReport */
 /** @typedef {import('./bmad-scripts.js').Migration} Migration */
@@ -135,19 +137,24 @@ export function renderSummary(report, options) {
   if (agents) lines.push(message(messages, 'summaryAgents', { agents: agents.join(', ') }))
   lines.push('')
   if (report.current) lines.push(message(messages, 'summaryNextCurrent'))
-  else if (report.next === 'bmad setup') lines.push(message(messages, 'summaryNextSetup'))
+  else if (report.next === SETUP_NEXT) lines.push(message(messages, 'summaryNextSetup'))
   else lines.push(message(messages, 'summaryNextOther', { next: report.next ?? '' }))
   const title = updated ? (problems ? 'summaryTitleUpdatedProblems' : 'summaryTitleUpdated') : (problems ? 'summaryTitleProblems' : 'summaryTitle')
   return { title: message(messages, title), body: lines.join('\n') }
 }
 
 /**
- * @param {string} version
- * @returns {string | null}
+ * A module's name with the version it is installed at.
+ * @param {Messages} messages
+ * @param {string} name
+ * @param {string} [version]
+ * @returns {string}
  */
-export function versionMajor(version) {
-  const match = /^v?(\d+)(?=[.\-+]|$)/.exec(version.trim())
-  return match ? match[1] : null
+export function installedLabel(messages, name, version) {
+  const suffix = version
+    ? message(messages, 'installedSuffix', { version })
+    : message(messages, 'installedSuffixNoVersion')
+  return `${name} ${suffix}`
 }
 
 /**
@@ -156,5 +163,5 @@ export function versionMajor(version) {
  * @returns {string}
  */
 function moduleName(modules, code) {
-  return modules.find((module) => module.code === code)?.name ?? code
+  return findModule(modules, code)?.name ?? code
 }

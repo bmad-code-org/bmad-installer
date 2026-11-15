@@ -1,6 +1,6 @@
 import { parseArgs } from 'node:util'
 import { AgentsError, loadAgents, parseToolsFlag } from './agents.js'
-import { createBmadScripts } from './bmad-scripts.js'
+import { BmadScriptsError, createBmadScripts } from './bmad-scripts.js'
 import { install } from './commands/install.js'
 import { status } from './commands/status.js'
 import { update } from './commands/update.js'
@@ -10,7 +10,7 @@ import { PreflightError } from './preflight.js'
 import * as prompts from './prompts.js'
 import { createRunner } from './run.js'
 import { createSkillsCli } from './skills-cli.js'
-import { version } from './version.js'
+import { packageName, version } from './version.js'
 
 /** @typedef {{ command: 'install' | 'update' | 'status', directory?: string, modules?: string, tools?: string, yes: boolean, telemetry: boolean, copy: boolean, debug: boolean }} CliOptions */
 /** @typedef {{ stdout: NodeJS.WriteStream, stderr: NodeJS.WriteStream, env: NodeJS.ProcessEnv, cwd: string }} Io */
@@ -38,10 +38,9 @@ const COMMANDS = new Set(['install', 'update', 'status'])
 /** @type {Record<string, 'install' | 'update'>} */
 const ACTIONS = { install: 'install', update: 'update', 'quick-update': 'update' }
 const DROPPED_COMMAND = 'uninstall'
-const INSTALLER_NAME = 'bmad-method'
-const HELP_HINT = 'Run bmad-method --help for the list of flags.'
+const HELP_HINT = `Run ${packageName} --help for the list of flags.`
 
-const HELP = `bmad-method [install|update|status] [flags]
+const HELP = `${packageName} [install|update|status] [flags]
 
 Commands
   install                   Install BMad modules into a project (the default)
@@ -167,7 +166,7 @@ export function parseCli(argv, messages) {
  * @param {{ debug: boolean, messages: Record<string, any> | null }} context
  * @returns {number}
  */
-function reportError(err, io, context) {
+export function reportError(err, io, context) {
   if (err instanceof prompts.Cancelled && context.messages) {
     prompts.fail(message(context.messages, 'cancelled'))
     return 1
@@ -187,6 +186,10 @@ function reportError(err, io, context) {
   if (err instanceof AgentsError && context.messages) {
     io.stderr.write(`${message(context.messages, 'unknownTools', { ids: err.message })}\n`)
     return 2
+  }
+  if (err instanceof BmadScriptsError) {
+    io.stderr.write(`${[err.message, err.stderr.trim()].filter(Boolean).join('\n')}\n`)
+    return 1
   }
   if (err instanceof MessagesError || err instanceof ModulesError) {
     io.stderr.write(`${err.message}\n`)
@@ -242,7 +245,7 @@ export async function main(argv, io) {
         env: out.env,
         telemetry: options.telemetry,
         copy: options.copy,
-        metadata: { installer: INSTALLER_NAME, version },
+        metadata: { installer: packageName, version },
       }),
       bmadScripts: createBmadScripts({ runner }),
       messages,

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { lastPickedAgents, saveAgentPick, savedAgentPick, savedPickPath, skillsLockPath } from '../src/harness.js'
+import { lastPickedAgents, saveAgentPick, savedAgentPick, savedPickPath, skillsLockPath } from '../src/agent-picks.js'
 
 test('skillsLockPath honours XDG_STATE_HOME', () => {
   assert.equal(
@@ -21,7 +21,7 @@ test('skillsLockPath falls back to the home dir without XDG_STATE_HOME', () => {
 })
 
 test('lastPickedAgents reads the string ids of the last pick', async (t) => {
-  const dir = await mkdtemp(join(tmpdir(), 'bmad-harness-'))
+  const dir = await mkdtemp(join(tmpdir(), 'bmad-picks-'))
   t.after(() => rm(dir, { recursive: true, force: true }))
   const env = { XDG_STATE_HOME: dir }
   const lockPath = skillsLockPath(env)
@@ -42,7 +42,7 @@ test('savedPickPath is in ~/.bmad', () => {
 })
 
 test('saveAgentPick and savedAgentPick round-trip, null before the first pick', async (t) => {
-  const dir = await mkdtemp(join(tmpdir(), 'bmad-harness-'))
+  const dir = await mkdtemp(join(tmpdir(), 'bmad-picks-'))
   t.after(() => rm(dir, { recursive: true, force: true }))
   const env = { HOME: dir }
 

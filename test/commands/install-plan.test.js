@@ -6,6 +6,7 @@ import {
   moduleCalls,
   repeatCommand,
   selectMigrations,
+  versionMajor,
   versionsByCode,
 } from '../../src/commands/install-plan.js'
 import { loadModules } from '../../src/modules.js'
@@ -51,7 +52,7 @@ test('versionsByCode maps the status entries and tolerates no status', () => {
   assert.deepEqual(versionsByCode(null), {})
 })
 
-test('selectMigrations keeps only chosen modules whose major actually moved', () => {
+test('selectMigrations keeps only modules whose major actually moved', () => {
   /** @param {Partial<Migration>} patch @returns {Migration} */
   const migration = (patch) => ({
     module: 'method', path: 'm.toml', file: '/p/m.toml', from: '6', to: '7', title: 'Move', ...patch,
@@ -63,13 +64,12 @@ test('selectMigrations keeps only chosen modules whose major actually moved', ()
     migration({ module: 'core-tools' }),
   ]
   const kept = selectMigrations(all, {
-    codes: ['core-tools', 'method'],
     before: { method: '6.13.0-next', 'core-tools': '6.13.0-next' },
     after: { method: '7.0.0', 'core-tools': '6.14.0' },
   })
 
   assert.deepEqual(kept, [migration({})])
-  assert.deepEqual(selectMigrations(all, { codes: ['method'], before: {}, after: { method: '7.0.0' } }), [])
+  assert.deepEqual(selectMigrations(all, { before: {}, after: { method: '7.0.0' } }), [])
 })
 
 test('repeatCommand names the picked modules and the agents', () => {
@@ -84,4 +84,13 @@ test('a folder from --modules becomes a custom module after the listed ones, ins
   assert.equal(chosen[2].custom, true)
   assert.deepEqual(moduleCalls(chosen, null).at(-1), { source: 'acme/mods/skills/widgets', skills: ['*'], label: 'acme/mods/skills/widgets' })
   assert.equal(repeatCommand(chosen, ['claude-code']), 'npx bmad-method install -m method,acme/mods/skills/widgets -t claude-code -y')
+})
+
+test('versionMajor reads the leading major version', () => {
+  assert.equal(versionMajor('6.13.0-next'), '6')
+  assert.equal(versionMajor('7.0.0'), '7')
+  assert.equal(versionMajor('6'), '6')
+  assert.equal(versionMajor('v6.1.0'), '6')
+  assert.equal(versionMajor(''), null)
+  assert.equal(versionMajor('unknown'), null)
 })

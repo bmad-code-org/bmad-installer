@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   BMAD_SKILL,
-  hasSkills,
   inspectInstall,
   installedModuleCodes,
 } from '../src/installed.js'
@@ -93,15 +92,3 @@ test('installedModuleCodes matches installed skills against each module record',
   assert.deepEqual(installedModuleCodes(stateOf(['bmad-solo']), solo), ['solo'])
 })
 
-test('hasSkills checks every requested name', () => {
-  /** @type {import('../src/installed.js').InstalledState} */
-  const state = {
-    skills: [listed('bmad', '/s/bmad'), listed('bmod-method', '/s/bmod-method')],
-    bmadSkillDir: '/s/bmad',
-    legacyManifest: false,
-  }
-
-  assert.equal(hasSkills(state, ['bmad', 'bmod-method']), true)
-  assert.equal(hasSkills(state, []), true)
-  assert.equal(hasSkills(state, ['bmad', 'bmad-prd']), false)
-})

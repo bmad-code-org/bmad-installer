@@ -1,53 +1,17 @@
-import { inspectInstall } from '../installed.js'
+import { SETUP_NEXT } from '../bmad-scripts.js'
 import { message } from '../messages.js'
 import { nodeFailureHint, runPreflight } from '../preflight.js'
-import { renderFailures, renderMigrations } from '../report.js'
-import { showEnding } from './ending.js'
-import {
-  chosenModules,
-  moduleCalls,
-  repeatCommand,
-  selectMigrations,
-  versionsByCode,
-} from './install-plan.js'
-import {
-  add,
-  announceUpdate,
-  chooseAgents,
-  pickChoices,
-  readExisting,
-  resolveDirectory,
-} from './install-steps.js'
+import { renderFailures } from '../report.js'
+import { agentsToInstall } from './agent-choice.js'
+import { applyCalls } from './apply.js'
+import { endRun } from './ending.js'
+import { readExisting } from './existing-install.js'
+import { chosenModules, moduleCalls, repeatCommand } from './install-plan.js'
+import { announceUpdate, pickModuleCodes, resolveDirectory } from './install-steps.js'
 import { update } from './update.js'
 
-/** @typedef {import('../bmad-scripts.js').StatusReport} StatusReport */
 /** @typedef {import('../cli.js').CliOptions} CliOptions */
-/** @typedef {import('../modules.js').ModuleDefinition} ModuleDefinition */
-/** @typedef {import('../run.js').Runner} Runner */
-/** @typedef {import('../skills-cli.js').AddResult} AddResult */
-
-/**
- * `terminal`, `agent` and `detect` stand in for the live TTY, coding-agent and file system checks in tests.
- * @typedef {{
- *   runner: Runner,
- *   skillsCli: ReturnType<typeof import('../skills-cli.js').createSkillsCli>,
- *   bmadScripts: ReturnType<typeof import('../bmad-scripts.js').createBmadScripts>,
- *   messages: Record<string, any>,
- *   modules: ModuleDefinition[],
- *   agents: import('../agents.js').Agent[],
- *   detect?: (project: string) => import('../agents.js').DetectContext,
- *   prompts: typeof import('../prompts.js'),
- *   env: NodeJS.ProcessEnv,
- *   cwd: string,
- *   version: string,
- *   node?: string,
- *   terminal?: () => boolean,
- *   agent?: () => Promise<string | null>
- * }} CommandDeps
- */
-
-const TITLE = 'BMad Installer'
-const SETUP_NEXT = 'bmad setup'
+/** @typedef {import('./deps.js').CommandDeps} CommandDeps */
 
 /**
  * @param {CliOptions} options
@@ -55,18 +19,12 @@ const SETUP_NEXT = 'bmad setup'
  * @returns {Promise<number>}
  */
 export async function install(options, deps) {
-  const { bmadScripts, messages, modules, prompts, runner } = deps
+  const { messages, modules, prompts, runner } = deps
   const interactive = !options.yes
 
-  prompts.showIntro(messages, TITLE)
+  prompts.showIntro(messages)
   await announceUpdate(deps)
-  await runPreflight({
-    interactive,
-    runner,
-    messages,
-    terminal: deps.terminal,
-    agent: deps.agent,
-  })
+  await runPreflight({ interactive, runner, messages, terminal: deps.terminal, agent: deps.agent })
 
   const directory = await resolveDirectory(options, deps, interactive)
   const existing = await readExisting(directory, deps)
@@ -74,7 +32,7 @@ export async function install(options, deps) {
     return update({ ...options, directory }, deps, { checked: true })
   }
 
-  const chosen = chosenModules(await pickChoices(options, deps, existing), modules)
+  const chosen = chosenModules(await pickModuleCodes(options, deps, existing), modules)
   for (const module of chosen) {
     if (module.deprecated) {
       prompts.warn(message(messages, 'deprecatedModule', { module: module.name, reason: module.deprecated }))
@@ -85,28 +43,13 @@ export async function install(options, deps) {
     prompts.warn(message(messages, 'modulesKept', { modules: kept.map((module) => module.name).join(', ') }))
   }
 
-  const agents = await chooseAgents(options, deps, directory, interactive)
-
-  /** @type {AddResult[]} */
-  const failures = []
-  const progress = prompts.startSpinner(message(messages, 'statusSpinner'))
-  /** @type {string | null} */
-  let bmadSkillDir = null
-  /** @type {StatusReport | null} */
-  let report = null
-  try {
-    for (const call of moduleCalls(chosen, existing.report)) {
-      progress.update(message(messages, 'installingSpinner', { what: call.label }))
-      failures.push(...(await add(call, agents, directory, deps)))
-    }
-    bmadSkillDir = (await inspectInstall(directory, deps.skillsCli)).bmadSkillDir
-    if (bmadSkillDir) {
-      progress.update(message(messages, 'statusSpinner'))
-      report = await bmadScripts.status(bmadSkillDir, directory)
-    }
-  } finally {
-    progress.stop()
-  }
+  const agents = await agentsToInstall(options, deps, directory, interactive)
+  const { failures, bmadSkillDir, report } = await applyCalls(deps, {
+    directory,
+    agents,
+    spinner: 'installingSpinner',
+    plan: () => moduleCalls(chosen, existing.report),
+  })
   if (!bmadSkillDir || !report) {
     prompts.fail(failures.length > 0
       ? [renderFailures(failures, messages), nodeFailureHint(messages, deps.node)].filter(Boolean).join('\n')
@@ -114,15 +57,6 @@ export async function install(options, deps) {
     return 1
   }
 
-  const migrations = selectMigrations(await bmadScripts.migrations(bmadSkillDir), {
-    codes: chosen.map((module) => module.code),
-    before: existing.versions,
-    after: versionsByCode(report),
-  })
-  const migrationText = renderMigrations(migrations, messages)
-  if (migrationText) prompts.showNote(migrationText)
-
-  showEnding(deps, { report, failures, directory, agents, repeat: repeatCommand(chosen, agents) })
-
+  await endRun(deps, { report, bmadSkillDir, before: existing.versions, failures, directory, agents, repeat: repeatCommand(chosen, agents) })
   return failures.length === 0 && (report.current || report.next === SETUP_NEXT) ? 0 : 1
 }

@@ -7,16 +7,7 @@ import { createRequire } from 'node:module'
 /** @typedef {{ source: string, skills: string[], agents: string[] }} AddRequest */
 
 export class SkillsCliError extends Error {
-  /**
-   * @param {string} message
-   * @param {{ code?: number | null, stderr?: string }} [details]
-   */
-  constructor(message, details = {}) {
-    super(message)
-    this.name = 'SkillsCliError'
-    this.code = details.code ?? null
-    this.stderr = details.stderr ?? ''
-  }
+  name = 'SkillsCliError'
 }
 
 /** @returns {string} */
@@ -111,7 +102,6 @@ export function createSkillsCli(deps) {
         argv: addArgv(request, { copy, metadata }),
         cwd: request.cwd,
         env,
-        stdio: 'pipe',
       })
       try {
         return parseAddResults(result.stdout)
@@ -124,7 +114,7 @@ export function createSkillsCli(deps) {
      * @returns {Promise<ListedSkill[]>}
      */
     async list(options) {
-      const result = await deps.runner({ argv: listArgv(), cwd: options.cwd, env, stdio: 'pipe' })
+      const result = await deps.runner({ argv: listArgv(), cwd: options.cwd, env })
       if (result.code !== 0 && result.stdout.trim() === '') return []
       return parseListResults(result.stdout)
     },

@@ -16,10 +16,10 @@ import {
 } from '@clack/prompts'
 import { UNIVERSAL_AGENT } from './agents.js'
 import { message } from './messages.js'
+import { installedLabel } from './report.js'
 
 const WIDE_LOGO_COLUMNS = 101
 const NARROW_LOGO_COLUMNS = 48
-
 
 /** @typedef {import('./agents.js').Agent} Agent */
 /** @typedef {import('./modules.js').ModuleDefinition} ModuleDefinition */
@@ -39,14 +39,11 @@ function ensure(value) {
   return /** @type {Exclude<T, symbol>} */ (/** @type {unknown} */ (value))
 }
 
-/**
- * @param {Record<string, any>} messages
- * @param {string} title
- */
-export function showIntro(messages, title) {
+/** @param {Record<string, any>} messages */
+export function showIntro(messages) {
   const columns = process.stdout.columns || 80
   if (columns >= NARROW_LOGO_COLUMNS) showLogo(messages, columns)
-  intro(title)
+  intro(message(messages, 'title'))
   log.message(message(messages, 'intro'))
 }
 
@@ -141,22 +138,6 @@ export async function confirm(question, initial = true) {
 
 /**
  * @param {Record<string, any>} messages
- * @param {ModuleDefinition} module
- * @param {string[]} installedCodes
- * @param {Record<string, string>} installedVersions
- * @returns {string}
- */
-function moduleLabel(messages, module, installedCodes, installedVersions) {
-  if (!installedCodes.includes(module.code)) return module.name
-  const version = installedVersions[module.code]
-  const suffix = version
-    ? message(messages, 'installedSuffix', { version })
-    : message(messages, 'installedSuffixNoVersion')
-  return `${module.name} ${suffix}`
-}
-
-/**
- * @param {Record<string, any>} messages
  * @param {ModuleDefinition[]} modules
  * @param {{ installedCodes: string[], installedVersions: Record<string, string> }} options
  * @returns {Picker}
@@ -168,7 +149,7 @@ export function modulePicker(messages, modules, options) {
   return {
     options: shown.map((module) => ({
       value: module.code,
-      label: moduleLabel(messages, module, installedCodes, installedVersions),
+      label: installedCodes.includes(module.code) ? installedLabel(messages, module.name, installedVersions[module.code]) : module.name,
       hint: module.description,
     })),
     initialValues: shown

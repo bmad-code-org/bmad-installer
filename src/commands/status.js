@@ -3,25 +3,10 @@ import { inspectInstall } from '../installed.js'
 import { message } from '../messages.js'
 import { PreflightError, uvInstallCommand, uvVersion } from '../preflight.js'
 import { renderStatus } from '../report.js'
+import { statusWithSpinner } from './existing-install.js'
 
-/** @typedef {import('../bmad-scripts.js').StatusReport} StatusReport */
-/** @typedef {import('./install.js').CommandDeps} CommandDeps */
 /** @typedef {import('../cli.js').CliOptions} CliOptions */
-
-/**
- * @param {CommandDeps} deps
- * @param {string} bmadSkillDir
- * @param {string} projectRoot
- * @returns {Promise<StatusReport>}
- */
-export async function statusWithSpinner(deps, bmadSkillDir, projectRoot) {
-  const spinner = deps.prompts.startSpinner(message(deps.messages, 'statusSpinner'))
-  try {
-    return await deps.bmadScripts.status(bmadSkillDir, projectRoot)
-  } finally {
-    spinner.stop()
-  }
-}
+/** @typedef {import('./deps.js').CommandDeps} CommandDeps */
 
 /**
  * @param {CommandDeps} deps

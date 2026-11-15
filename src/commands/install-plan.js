@@ -1,5 +1,4 @@
 import { customModule, isModuleSource } from '../modules.js'
-import { versionMajor } from '../report.js'
 
 /** @typedef {import('../bmad-scripts.js').Migration} Migration */
 /** @typedef {import('../bmad-scripts.js').StatusReport} StatusReport */
@@ -61,15 +60,25 @@ export function versionsByCode(report) {
 }
 
 /**
+ * @param {string} version
+ * @returns {string | null}
+ */
+export function versionMajor(version) {
+  const match = /^v?(\d+)(?=[.\-+]|$)/.exec(version.trim())
+  return match ? match[1] : null
+}
+
+/**
+ * The migrations for a major version a module crossed in this run. A module the run did not
+ * touch has the same version before and after, so it never matches.
  * @param {Migration[]} migrations
- * @param {{ codes: string[], before: Record<string, string>, after: Record<string, string> }} options
+ * @param {{ before: Record<string, string>, after: Record<string, string> }} versions
  * @returns {Migration[]}
  */
-export function selectMigrations(migrations, options) {
+export function selectMigrations(migrations, versions) {
   return migrations.filter((migration) => {
-    if (!options.codes.includes(migration.module)) return false
-    const from = versionMajor(options.before[migration.module] ?? '')
-    const to = versionMajor(options.after[migration.module] ?? '')
+    const from = versionMajor(versions.before[migration.module] ?? '')
+    const to = versionMajor(versions.after[migration.module] ?? '')
     return from !== null && from === migration.from && to !== null && to === migration.to
   })
 }

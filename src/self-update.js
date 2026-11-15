@@ -1,7 +1,8 @@
+import { packageName } from './version.js'
+
 /** @typedef {import('./run.js').Runner} Runner */
 /** @typedef {{ major: number, minor: number, patch: number, prerelease: string | null }} ParsedVersion */
 
-const PACKAGE_NAME = 'bmad-method'
 const NPM_VIEW_TIMEOUT_MS = 5000
 const VERSION_PATTERN = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/
 
@@ -73,7 +74,7 @@ export async function newerVersion(deps) {
   if (!ours) return null
   try {
     const result = await runner({
-      argv: ['npm', 'view', `${PACKAGE_NAME}@${distTag(version)}`, 'version'],
+      argv: ['npm', 'view', `${packageName}@${distTag(version)}`, 'version'],
       timeoutMs,
     })
     if (result.timedOut || result.code !== 0) return null
