@@ -1,4 +1,6 @@
 # `source` is the module's folder: `owner/repo/path`, or `owner/repo` when the repository holds one module. The installer runs one `npx skills add <source> -s '*'` per module.
+# `code` is the code in the module's [bmod] table, so an installed module is recognised; `aliases` are other names `--modules` takes.
+# `requires` lists the modules installed along with this one.
 # `record` is the skill holding the module's [bmod] table: a bmod-* record that lists the module's skills, or, for a module of one skill, that skill itself.
 modules:
   - code: core-tools
@@ -35,6 +37,14 @@ modules:
     # The repository root also holds test fixture skills, so the source is its skills folder.
     source: bmad-code-org/bmad-method-test-architecture-enterprise/skills
     record: bmod-tea
+
+  - code: bmad-loop
+    aliases: [loop]
+    name: BMad Loop
+    description: Runs stories unattended (implement, review, verify, commit). Early beta
+    source: bmad-code-org/bmad-loop/skills
+    record: bmod-bmad-loop
+    requires: [method]
 
   - code: cis
     name: BMad Creative Intelligence Suite

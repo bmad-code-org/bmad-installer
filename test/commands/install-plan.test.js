@@ -5,6 +5,7 @@ import {
   chosenModules,
   moduleCalls,
   repeatCommand,
+  requiredCodes,
   selectMigrations,
   versionMajor,
   versionsByCode,
@@ -107,4 +108,13 @@ test('a code picked with a ref comes from that branch, is re-added even when ins
   assert.deepEqual(moduleCalls(chosen, installed).map((call) => call.label), ['BMad Core Tools', 'BMad Method', 'BMad Creative Intelligence Suite'])
   assert.deepEqual(moduleCalls(chosenModules(['method'], modules), installed), [])
   assert.equal(repeatCommand(chosen, ['claude-code']), 'npx bmad-method install -m core-tools#dev,method#dev,cis -t claude-code -y')
+})
+
+test('a picked module brings the modules it requires, unless they were picked too', () => {
+  assert.deepEqual(requiredCodes(['bmad-loop'], modules), ['method'])
+  assert.deepEqual(requiredCodes(['bmad-loop', 'method#dev'], modules), [])
+  assert.deepEqual(requiredCodes(['cis'], modules), [])
+  assert.deepEqual(chosenModules(['bmad-loop'], modules).map((module) => module.code), ['core-tools', 'method', 'bmad-loop'])
+  const withRef = chosenModules(['bmad-loop', 'method#dev'], modules)
+  assert.equal(withRef[1].source, 'bmad-code-org/BMAD-METHOD/skills/method#dev')
 })

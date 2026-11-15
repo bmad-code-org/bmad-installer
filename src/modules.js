@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { parse } from 'yaml'
 import { packageRoot } from './version.js'
 
-/** @typedef {{ code: string, name: string, description: string, source: string, record: string, aliases?: string[], always?: boolean, default?: boolean, deprecated?: string, custom?: boolean, ref?: string }} ModuleDefinition */
+/** @typedef {{ code: string, name: string, description: string, source: string, record: string, aliases?: string[], always?: boolean, default?: boolean, deprecated?: string, requires?: string[], custom?: boolean, ref?: string }} ModuleDefinition */
 
 const SOURCE_PATTERN = /^[\w.-]+\/[\w.-]+(\/[\w.-]+)*$/
 const SOURCE_OVERRIDE = 'BMAD_INSTALLER_SOURCE_OVERRIDE'
@@ -73,6 +73,10 @@ function validateModule(entry, index, taken) {
   if (entry.always === true) module.always = true
   if (entry.default === true) module.default = true
   if (entry.deprecated !== undefined) module.deprecated = requireText(entry.deprecated, where, 'deprecated')
+  if (entry.requires !== undefined) {
+    if (!Array.isArray(entry.requires)) throw new ModulesError(`${where}: requires must be a list of module codes`)
+    module.requires = entry.requires.map((/** @type {unknown} */ code) => requireText(code, where, 'requires'))
+  }
   return module
 }
 
@@ -89,6 +93,13 @@ export async function loadModules(filePath = join(packageRoot, 'modules.yaml')) 
   /** @type {Set<string>} */
   const taken = new Set()
   const modules = entries.map((entry, index) => validateModule(entry, index, taken))
+  for (const module of modules) {
+    for (const code of module.requires ?? []) {
+      if (!modules.some((other) => other.code === code)) {
+        throw new ModulesError(`module "${module.code}": requires names "${code}", which is not a module code`)
+      }
+    }
+  }
   const override = process.env[SOURCE_OVERRIDE]
   if (!override) return modules
   const repo = repoOf((modules.find((module) => module.always) ?? modules[0]).source)

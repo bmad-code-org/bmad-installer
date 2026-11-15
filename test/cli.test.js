@@ -181,7 +181,7 @@ test('main rejects an unknown --tools id before it prints anything else', async 
 test('main rejects an unknown --modules code before it prints anything else', async () => {
   const { io, out, err } = fakeIo()
   assert.equal(await main(['-y', '-m', 'method,nope', '-t', 'claude-code'], io), 2)
-  assert.ok(err.join('').startsWith('Unknown module: nope\nModules: method, toolsmith, founder, tea, cis, or a folder'), err.join(''))
+  assert.ok(err.join('').startsWith('Unknown module: nope\nModules: method, toolsmith, founder, tea, bmad-loop, cis, or a folder'), err.join(''))
   assert.equal(out.length, 0)
 })
 

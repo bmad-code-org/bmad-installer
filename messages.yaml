@@ -85,6 +85,8 @@ modulesPrompt: "Which modules do you want?"
 
 deprecatedModule: "{module} is deprecated. {reason}"
 
+modulesRequired: "Also installing {modules}: a module you picked needs it."
+
 modulesKept: |-
   Still installed: {modules}. This installer never removes anything.
   To remove a module, run npx skills remove with its skills.

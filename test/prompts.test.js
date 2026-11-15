@@ -22,7 +22,7 @@ const fresh = { installedCodes: /** @type {string[]} */ ([]), installedVersions:
 
 test('the module picker hides the always modules', () => {
   const picker = modulePicker(messages, modules, fresh)
-  assert.deepEqual(picker.options.map((option) => option.value), ['method', 'toolsmith', 'founder', 'tea', 'cis'])
+  assert.deepEqual(picker.options.map((option) => option.value), ['method', 'toolsmith', 'founder', 'tea', 'bmad-loop', 'cis'])
   assert.equal(picker.options.some((option) => option.value === 'core-tools'), false)
 })
 

@@ -46,7 +46,7 @@ after(async () => {
 
 test('loads and validates the real modules.yaml', async () => {
   const modules = await loadModules()
-  assert.deepEqual(modules.map((module) => module.code), ['core-tools', 'method', 'toolsmith', 'founder', 'tea', 'cis'])
+  assert.deepEqual(modules.map((module) => module.code), ['core-tools', 'method', 'toolsmith', 'founder', 'tea', 'bmad-loop', 'cis'])
   assert.equal(must(modules, 'core-tools').always, true)
   const method = must(modules, 'method')
   assert.deepEqual(method.aliases, ['bmm'])

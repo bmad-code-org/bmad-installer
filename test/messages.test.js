@@ -43,6 +43,7 @@ const keysWithValues = {
   nothingToUpdate: {},
   nothingInstalled: {},
   updatingSpinner: { what: 'BMad Method' },
+  modulesRequired: { modules: 'BMad Method' },
   updateNotListed: { modules: 'acme' },
   migrationsAvailable: {},
   migrationLine: { title: 'Move v6 artifacts', module: 'method', from: '6', to: '7' },

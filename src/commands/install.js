@@ -6,7 +6,7 @@ import { agentsToInstall } from './agent-choice.js'
 import { applyCalls } from './apply.js'
 import { endRun } from './ending.js'
 import { readExisting } from './existing-install.js'
-import { chosenModules, moduleCalls, repeatCommand } from './install-plan.js'
+import { chosenModules, moduleCalls, repeatCommand, requiredCodes } from './install-plan.js'
 import { announceUpdate, pickModuleCodes, resolveDirectory } from './install-steps.js'
 import { update } from './update.js'
 
@@ -32,7 +32,13 @@ export async function install(options, deps) {
     return update({ ...options, directory }, deps, { checked: true })
   }
 
-  const chosen = chosenModules(await pickModuleCodes(options, deps, existing), modules)
+  const picked = await pickModuleCodes(options, deps, existing)
+  const chosen = chosenModules(picked, modules)
+  const pulledIn = requiredCodes(picked, modules).filter((code) => !existing.codes.includes(code))
+  if (pulledIn.length > 0) {
+    const names = pulledIn.map((code) => modules.find((module) => module.code === code)?.name ?? code)
+    prompts.say(message(messages, 'modulesRequired', { modules: names.join(', ') }))
+  }
   for (const module of chosen) {
     if (module.deprecated) {
       prompts.warn(message(messages, 'deprecatedModule', { module: module.name, reason: module.deprecated }))

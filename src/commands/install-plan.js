@@ -9,8 +9,8 @@ const ALL_SKILLS = '*'
 
 /**
  * Resolves the picked codes in modules.yaml order and adds the `always` modules, which neither
- * the flag nor the prompt has to name. A code picked as `code#ref` comes from that branch or tag.
- * Sources from `--modules` follow, in the order given.
+ * the flag nor the prompt has to name, and the modules the picked ones require. A code picked as
+ * `code#ref` comes from that branch or tag. Sources from `--modules` follow, in the order given.
  * @param {string[]} codes
  * @param {ModuleDefinition[]} modules
  * @returns {ModuleDefinition[]}
@@ -23,6 +23,7 @@ export function chosenModules(codes, modules) {
     const [code, ref] = picked.split('#')
     refs.set(code, ref)
   }
+  for (const code of requiredCodes([...refs.keys()], modules)) refs.set(code, undefined)
   const listed = modules
     .filter((module) => module.always || refs.has(module.code))
     .map((module) => {
@@ -30,6 +31,27 @@ export function chosenModules(codes, modules) {
       return ref ? { ...module, source: sourceAtRef(module.source, ref), ref } : module
     })
   return [...listed, ...codes.filter(isModuleSource).map(customModule)]
+}
+
+/**
+ * The codes the picked modules require, directly or through another required module, that were
+ * not picked themselves.
+ * @param {string[]} picked
+ * @param {ModuleDefinition[]} modules
+ * @returns {string[]}
+ */
+export function requiredCodes(picked, modules) {
+  const wanted = new Set(picked.map((code) => code.split('#')[0]))
+  /** @type {string[]} */
+  const added = []
+  for (const code of wanted) {
+    for (const required of modules.find((module) => module.code === code)?.requires ?? []) {
+      if (wanted.has(required)) continue
+      wanted.add(required)
+      added.push(required)
+    }
+  }
+  return added
 }
 
 /**

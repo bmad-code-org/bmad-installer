@@ -77,6 +77,13 @@ test('validation rejects malformed files', async () => {
   )
   await assertInvalid(`${VALID}\n  - code: one\n    name: Dup\n    description: d\n    source: o/r\n    record: r\n`, 'already used')
   await assertInvalid(`${VALID}\n  - code: dos\n    name: Dup\n    description: d\n    source: o/r\n    record: r\n`, 'already used')
+  await assertInvalid(`${VALID}\n  - code: three\n    name: Three\n    description: d\n    source: o/r\n    record: r\n    requires: [nope]\n`, 'not a module code')
+  await assertInvalid(`${VALID}\n  - code: three\n    name: Three\n    description: d\n    source: o/r\n    record: r\n    requires: one\n`, 'list of module codes')
+})
+
+test('requires names other module codes', async () => {
+  const modules = await loadModules(await writeModulesFile(`${VALID}\n  - code: three\n    name: Three\n    description: d\n    source: o/r\n    record: r\n    requires: [two]\n`))
+  assert.deepEqual(findModule(modules, 'three')?.requires, ['two'])
 })
 
 test('the source override swaps the repository of the core modules and keeps their folders', async () => {

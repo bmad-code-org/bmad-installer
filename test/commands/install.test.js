@@ -243,3 +243,30 @@ test('--modules with code#ref installs that module from the branch, even when it
   assert.equal(said.warns.some((warning) => warning.includes('Still installed')), false)
   assert.ok(said.plain.some((text) => text.includes('-m method#dev')))
 })
+
+test('picking a module that needs another installs both and says so', async (t) => {
+  const dir = await tempDir(t)
+  const { prompts, said } = fakePrompts()
+  const { cli, requests } = fakeSkillsCli({ lists: [[], RECORDS.map(listed)] })
+  const { scripts } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
+
+  await install(options({ directory: dir, yes: true, modules: 'loop' }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }))
+
+  assert.deepEqual(only(requests).map((request) => request.source), [
+    'bmad-code-org/BMAD-METHOD/skills/core-tools',
+    'bmad-code-org/BMAD-METHOD/skills/method',
+    'bmad-code-org/bmad-loop/skills',
+  ])
+  assert.ok(said.says.includes(messages.modulesRequired.replace('{modules}', 'BMad Method')))
+})
+
+test('a required module already installed is not announced', async (t) => {
+  const dir = await tempDir(t)
+  const { prompts, said } = fakePrompts()
+  const { cli } = fakeSkillsCli({ lists: [RECORDS.map(listed), RECORDS.map(listed)] })
+  const { scripts } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
+
+  await install(options({ directory: dir, yes: true, modules: 'bmad-loop' }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }))
+
+  assert.equal(said.says.some((line) => line.startsWith('Also installing')), false)
+})
