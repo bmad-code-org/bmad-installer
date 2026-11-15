@@ -166,8 +166,11 @@ test('choosing quick update on an existing install runs the update flow', async 
   assert.equal(calls.filter((argv) => argv.join(' ') === 'uv --version').length, 1, 'preflight ran twice')
   assert.ok(asked.includes('existing'))
   assert.equal(asked.includes('modules'), false)
-  assert.equal(only(requests, 'update').length, 1)
-  assert.deepEqual(said.says.at(-1), messages.updateSpinnerDone)
+  assert.deepEqual(only(requests).map((request) => request.source), [
+    'bmad-code-org/BMAD-METHOD/skills/core-tools',
+    'bmad-code-org/BMAD-METHOD/skills/method',
+  ])
+  assert.ok(said.notes.at(-1)?.startsWith(messages.summaryTitleUpdated))
 })
 
 test('unticking an installed module keeps it and says so', async (t) => {

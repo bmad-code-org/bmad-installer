@@ -50,11 +50,6 @@ export function addArgv(request, options) {
 }
 
 /** @returns {string[]} */
-export function updateArgv() {
-  return [process.execPath, skillsCliBin(), 'update', '-p', '-y']
-}
-
-/** @returns {string[]} */
 export function listArgv() {
   return [process.execPath, skillsCliBin(), 'list', '--json']
 }
@@ -123,11 +118,6 @@ export function createSkillsCli(deps) {
       } catch {
         return [{ status: 'failed', error: failureReason(result) }]
       }
-    },
-    /** @param {{ cwd: string }} options */
-    async update(options) {
-      const result = await deps.runner({ argv: updateArgv(), cwd: options.cwd, env, stdio: 'inherit' })
-      return { code: result.code }
     },
     /**
      * @param {{ cwd: string }} options

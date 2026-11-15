@@ -1,8 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { resolve } from 'node:path'
+import { join } from 'node:path'
 import { update } from '../../src/commands/update.js'
 import {
+  HOME,
+  detectWith,
   fakeBmadScripts,
   fakePrompts,
   fakeSkillsCli,
@@ -12,6 +14,7 @@ import {
   only,
   options,
   statusOf,
+  tempDir,
 } from '../helpers/command-fakes.js'
 
 /** @param {Partial<import('../../src/cli.js').CliOptions>} [patch] */
@@ -28,23 +31,24 @@ test('nothing to update without the bmad skill', async () => {
 
   assert.equal(code, 1)
   assert.deepEqual(said.fails, [messages.nothingToUpdate])
-  assert.equal(only(requests, 'update').length, 0)
+  assert.equal(only(requests).length, 0)
 })
 
-test('the update runs the CLI, then reports and closes', async () => {
+test('the update re-adds each installed module whole to the agents holding bmad, then reports and closes', async (t) => {
+  const dir = await tempDir(t)
   const { prompts, said } = fakePrompts()
   const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad'), listed('bmod-method')]] })
   const { scripts, seen } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
+  const detect = detectWith([join(HOME, '.grok'), join(dir, '.claude', 'skills', 'bmad'), join(dir, '.agents', 'skills', 'bmad')])
 
-  const code = await update(
-    updateOptions({ directory: '/project' }),
-    makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts }),
-  )
+  const code = await update(updateOptions({ directory: dir }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, detect }))
 
   assert.equal(code, 0)
-  assert.deepEqual(only(requests, 'update'), [{ kind: 'update', cwd: resolve('/project') }])
+  assert.deepEqual(only(requests).map((request) => [request.source, request.skills, request.agents]), [
+    ['bmad-code-org/BMAD-METHOD/skills/core-tools', ['*'], ['universal', 'claude-code']],
+    ['bmad-code-org/BMAD-METHOD/skills/method', ['*'], ['universal', 'claude-code']],
+  ])
   assert.deepEqual(seen, ['/project/.agents/skills/bmad', '/project/.agents/skills/bmad'])
-  assert.deepEqual(said.says, [messages.updateSpinnerDone])
   const summary = said.notes.at(-1) ?? ''
   assert.ok(summary.startsWith(messages.summaryTitleUpdated), summary)
   assert.ok(summary.includes('bmad setup'))
@@ -54,15 +58,40 @@ test('the update runs the CLI, then reports and closes', async () => {
   assert.deepEqual(said.finish, [''])
 })
 
-test('a failing skills CLI still reports and exits 1', async () => {
+test('a single-agent install updates into that agent only', async (t) => {
+  const dir = await tempDir(t)
+  const { prompts } = fakePrompts()
+  const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad')]] })
+  const { scripts } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
+
+  await update(updateOptions({ directory: dir }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, detect: detectWith([join(dir, '.augment', 'skills', 'bmad')]) }))
+
+  for (const request of only(requests)) assert.deepEqual(request.agents, ['augment'])
+})
+
+test('a failed module is reported and exits 1', async () => {
   const { prompts, said } = fakePrompts()
-  const { cli } = fakeSkillsCli({ lists: [[listed('bmad')]], updateCode: 1 })
+  const { cli } = fakeSkillsCli({ lists: [[listed('bmad')]], add: () => [{ status: 'failed', error: 'Failed to clone repository' }] })
   const { scripts } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
 
   const code = await update(updateOptions(), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts }))
 
   assert.equal(code, 1)
-  assert.ok(said.notes.some((note) => note.startsWith(messages.summaryTitleUpdated)))
+  assert.ok(said.warns.some((warning) => warning.includes('Failed to clone repository')))
+  assert.ok(said.notes.some((note) => note.startsWith(messages.summaryTitleUpdatedProblems)))
+})
+
+test('a module this installer does not know is named, not updated', async () => {
+  const report = statusOf()
+  report.modules.push({ ...report.modules[1], module: 'acme' })
+  const { prompts, said } = fakePrompts()
+  const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad')]] })
+  const { scripts } = fakeBmadScripts({ statuses: [report, report] })
+
+  await update(updateOptions(), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts }))
+
+  assert.equal(only(requests).length, 2)
+  assert.ok(said.says.includes(messages.updateNotListed.replace('{modules}', 'acme')))
 })
 
 test('migrations compare the versions before and after the update', async () => {

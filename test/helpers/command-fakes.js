@@ -89,10 +89,6 @@ export function fakeSkillsCli(script) {
       if (script.add) return script.add(request)
       return request.skills.map((/** @type {string} */ name) => ({ name, status: 'installed' }))
     },
-    async update(/** @type {any} */ options) {
-      requests.push({ kind: 'update', ...options })
-      return { code: script.updateCode ?? 0 }
-    },
     async list(/** @type {any} */ options) {
       requests.push({ kind: 'list', ...options })
       const result = script.lists[Math.min(listIndex, script.lists.length - 1)]

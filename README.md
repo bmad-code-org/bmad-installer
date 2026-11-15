@@ -75,7 +75,7 @@ The summary names the project, the modules with their version and the coding age
 
 Three routes: ask the `bmad` skill, run `npx bmad-method update`, or run `npx skills update`.
 
-`npx bmad-method update` runs the skills CLI update over the project's skills, then prints the status report and any migrations for the version jump.
+`npx bmad-method update` re-adds each installed module whole, one `npx skills add <owner/repo/folder> -s '*'` per module, to the agents whose folder in the project already holds BMad. It then prints the summary and any migrations for the version jump. It updates only the modules this installer knows and names any others; `npx skills update` covers those, one skill and one clone at a time, so it is much slower. A module re-added this way gets back any skill removed from it by hand.
 
 After adding or updating any skill by any route, ask the `bmad` skill to update. Only it reconciles what is installed.
 
@@ -91,7 +91,7 @@ If you install with the skills CLI directly, install a module from its folder: `
 
 - `status` and `update` take 5 to 10 seconds. The `bmad` skill's setup script reads each module's record from GitHub on every call.
 - `npx skills update` currently skips the `bmad` skill because BMAD-METHOD ships a second `bmad` SKILL.md in a test fixture.
-- `npx skills update` re-adds skills without the agent list, which can change where they land. `npx bmad-method update` has the same limit.
+- `npx skills update` re-adds skills without the agent list, so it can add agents whose folders happen to be in the project. `npx bmad-method update` passes the agents already holding BMad.
 - Symlink errors on Windows: add `--copy`.
 - `--debug` prints every child command with its output.
 

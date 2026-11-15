@@ -10,7 +10,6 @@ import {
   parseAddResults,
   parseListResults,
   skillsCliBin,
-  updateArgv,
 } from '../src/skills-cli.js'
 
 /** @typedef {import('../src/run.js').RunRequest} RunRequest */
@@ -78,8 +77,7 @@ test('addArgv builds a headless call with -a and metadata after the swallowing f
   ])
 })
 
-test('updateArgv and listArgv are fixed', () => {
-  assert.deepEqual(updateArgv(), [process.execPath, bin, 'update', '-p', '-y'])
+test('listArgv is fixed', () => {
   assert.deepEqual(listArgv(), [process.execPath, bin, 'list', '--json'])
 })
 
@@ -149,14 +147,6 @@ test('add passes DO_NOT_TRACK and --copy through from the factory', async () => 
   await cli.add({ source: 'owner/repo', skills: ['bmad'], agents: ['claude-code'], cwd: '/proj' })
   assert.equal(calls[0].env?.DO_NOT_TRACK, '1')
   assert.ok(calls[0].argv.includes('--copy'))
-})
-
-test('update inherits stdio and returns the exit code', async () => {
-  const { cli, calls } = fakeCli([{ code: 1 }])
-  const result = await cli.update({ cwd: '/proj' })
-  assert.deepEqual(result, { code: 1 })
-  assert.equal(calls[0].stdio, 'inherit')
-  assert.deepEqual(calls[0].argv, updateArgv())
 })
 
 test('list returns [] when the CLI fails with empty stdout', async () => {

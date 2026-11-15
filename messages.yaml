@@ -113,7 +113,8 @@ nothingToUpdate: "No BMad install here to update. Run npx bmad-method install fi
 
 nothingInstalled: "There is no BMad install here. Run npx bmad-method install first."
 
-updateSpinnerDone: "Update finished"
+updatingSpinner: "Updating {what}"
+updateNotListed: "Not updated, this installer does not know them: {modules}. Run npx skills update for those."
 
 migrationsAvailable: "Migrations are available for this upgrade:"
 
