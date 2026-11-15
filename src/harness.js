@@ -3,7 +3,7 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 
 const LOCK_FILE = '.skill-lock.json'
-const LOCK_VERSION = 3
+const PICK_FILE = 'last-agents.json'
 
 /**
  * @param {NodeJS.ProcessEnv} [env]
@@ -17,7 +17,7 @@ export function skillsLockPath(env = process.env, homeDir = homedir()) {
 }
 
 /**
- * The agents last picked, in our picker or the skills CLI's own, used to preselect ours.
+ * The agents last picked in the skills CLI's own picker.
  * @param {NodeJS.ProcessEnv} [env]
  * @param {string} [homeDir]
  * @returns {Promise<string[]>}
@@ -33,22 +33,40 @@ export async function lastPickedAgents(env = process.env, homeDir = homedir()) {
 }
 
 /**
- * Records our pick where the skills CLI keeps its own, so the next run of either picker starts
- * from it. Everything else in the lock is kept; a lock the CLI would discard starts over as it would.
+ * Where our own last pick lives: `$XDG_STATE_HOME/bmad-method`, else `~/.local/state/bmad-method`.
+ * @param {NodeJS.ProcessEnv} [env]
+ * @param {string} [homeDir]
+ * @returns {string}
+ */
+export function savedPickPath(env = process.env, homeDir = homedir()) {
+  const stateHome = env.XDG_STATE_HOME || join(homeDir, '.local', 'state')
+  return join(stateHome, 'bmad-method', PICK_FILE)
+}
+
+/**
+ * The agents picked in our picker last time, or null before the first pick.
+ * @param {NodeJS.ProcessEnv} [env]
+ * @param {string} [homeDir]
+ * @returns {Promise<string[] | null>}
+ */
+export async function savedAgentPick(env = process.env, homeDir = homedir()) {
+  try {
+    const saved = JSON.parse(await readFile(savedPickPath(env, homeDir), 'utf8'))
+    return Array.isArray(saved?.agents) ? saved.agents.filter((/** @type {unknown} */ id) => typeof id === 'string') : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * @param {string[]} agents
  * @param {NodeJS.ProcessEnv} [env]
  * @param {string} [homeDir]
  */
-export async function saveLastPickedAgents(agents, env = process.env, homeDir = homedir()) {
-  const lockPath = skillsLockPath(env, homeDir)
-  /** @type {Record<string, unknown>} */
-  let lock = { version: LOCK_VERSION, skills: {}, dismissed: {} }
+export async function saveAgentPick(agents, env = process.env, homeDir = homedir()) {
+  const path = savedPickPath(env, homeDir)
   try {
-    const parsed = JSON.parse(await readFile(lockPath, 'utf8'))
-    if (typeof parsed?.version === 'number' && parsed.version >= LOCK_VERSION && parsed.skills) lock = parsed
-  } catch {}
-  try {
-    await mkdir(dirname(lockPath), { recursive: true })
-    await writeFile(lockPath, JSON.stringify({ ...lock, lastSelectedAgents: agents }, null, 2), 'utf8')
+    await mkdir(dirname(path), { recursive: true })
+    await writeFile(path, `${JSON.stringify({ agents }, null, 2)}\n`, 'utf8')
   } catch {}
 }

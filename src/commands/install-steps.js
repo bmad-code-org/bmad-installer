@@ -10,7 +10,7 @@ import {
   parseToolsFlag,
   sharedFolderHolds,
 } from '../agents.js'
-import { lastPickedAgents, saveLastPickedAgents } from '../harness.js'
+import { lastPickedAgents, saveAgentPick, savedAgentPick } from '../harness.js'
 import { BMAD_SKILL, inspectInstall, installedModuleCodes } from '../installed.js'
 import { message } from '../messages.js'
 import { defaultCodes, findModule, parseModulesFlag } from '../modules.js'
@@ -137,8 +137,8 @@ export async function pickChoices(options, deps, existing) {
  * `.agents/skills` folded into the `universal` id, or `universal` alone when none is found.
  * Otherwise the picker ticks the agents with their own folder already holding BMad here, plus
  * the shared-folder agents of the last pick when `.agents/skills` holds it; with neither, the
- * last pick. Agents found on this machine are listed first but not ticked. The answer is saved
- * as the last pick.
+ * last pick. The last pick is our own saved one, else the skills CLI's without its shared-folder
+ * agents. Agents found on this machine are listed first but not ticked.
  * @param {CliOptions} options
  * @param {CommandDeps} deps
  * @param {string} directory
@@ -154,14 +154,16 @@ export async function chooseAgents(options, deps, directory, interactive) {
   if (!interactive) return detected.length > 0 ? detected : [UNIVERSAL_AGENT]
 
   const listed = agents.filter((agent) => agent.id !== UNIVERSAL_AGENT)
-  const last = (await lastPickedAgents(deps.env)).filter((id) => listed.some((agent) => agent.id === id))
   const shared = new Set(listed.filter(isUniversal).map((agent) => agent.id))
+  // The skills CLI saves every shared-folder agent it shows as locked, so its pick says nothing about those.
+  const saved = (await savedAgentPick(deps.env)) ?? (await lastPickedAgents(deps.env)).filter((id) => !shared.has(id))
+  const last = saved.filter((id) => listed.some((agent) => agent.id === id))
   const holding = [
     ...agentsHolding(agents, BMAD_SKILL, context),
     ...(sharedFolderHolds(BMAD_SKILL, context) ? last.filter((id) => shared.has(id)) : []),
   ]
   const picked = await prompts.chooseAgents(messages, agents, { initial: holding.length > 0 ? holding : last, found })
-  await saveLastPickedAgents(picked, deps.env)
+  await saveAgentPick(picked, deps.env)
   return picked
 }
 

@@ -1,10 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { AgentsError } from '../../src/agents.js'
 import { install } from '../../src/commands/install.js'
-import { skillsLockPath } from '../../src/harness.js'
+import { savedAgentPick, saveAgentPick, skillsLockPath } from '../../src/harness.js'
 import {
   HOME,
   RECORDS,
@@ -103,9 +103,9 @@ test('the picker runs after the module prompt and its answer goes to every call'
   assert.ok(said.notes.at(-1)?.includes('Agents    Codex, Claude Code'))
 })
 
-test('on a fresh project the picker ticks the last skills CLI pick', async (t) => {
+test('on a fresh project the picker ticks the skills CLI pick without its shared-folder agents', async (t) => {
   const dir = await tempDir(t)
-  await writeLastPick(dir, ['augment', 'cursor', 'not-an-agent'])
+  await writeLastPick(dir, ['amp', 'augment', 'cursor', 'claude-code', 'not-an-agent'])
   const { prompts, pickers } = fakePrompts()
   const { cli, scripts, env } = parts(dir)
 
@@ -114,14 +114,26 @@ test('on a fresh project the picker ticks the last skills CLI pick', async (t) =
     makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, env, detect: detectWith([join(HOME, '.codex')]) }),
   )
 
-  assert.deepEqual(pickers[0].initial, ['augment', 'cursor'])
+  assert.deepEqual(pickers[0].initial, ['augment', 'claude-code'], 'the skills CLI records every shared-folder agent as picked')
+})
+
+test('our own saved pick wins over the skills CLI pick, shared-folder agents included', async (t) => {
+  const dir = await tempDir(t)
+  await writeLastPick(dir, ['augment'])
+  const { prompts, pickers } = fakePrompts()
+  const { cli, scripts, env } = parts(dir)
+  await saveAgentPick(['codex', 'cursor'], env)
+
+  await install(options({ directory: dir }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, env }))
+
+  assert.deepEqual(pickers[0].initial, ['codex', 'cursor'])
 })
 
 test('the picker ticks own-folder agents holding bmad and only the shared-folder agents of the last pick', async (t) => {
   const dir = await tempDir(t)
-  await writeLastPick(dir, ['cursor', 'codex', 'augment'])
   const { prompts, pickers } = fakePrompts()
   const { cli, scripts, env } = parts(dir)
+  await saveAgentPick(['cursor', 'codex', 'augment'], env)
   const detect = detectWith([
     join(HOME, '.codex'),
     join(HOME, '.gemini'),
@@ -153,9 +165,7 @@ test('the pick is saved as the last pick and ticked on the next run', async (t) 
 
   await install(options({ directory: dir }), makeDeps({ prompts: first.prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, env }))
 
-  const lock = JSON.parse(await readFile(skillsLockPath(env), 'utf8'))
-  assert.deepEqual(lock.lastSelectedAgents, ['codex', 'claude-code'])
-  assert.equal(lock.version, 3)
+  assert.deepEqual(await savedAgentPick(env), ['codex', 'claude-code'])
 
   const second = fakePrompts()
   const again = parts(dir)
