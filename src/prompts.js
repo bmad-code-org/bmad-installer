@@ -193,14 +193,16 @@ export async function chooseModules(messages, modules, options) {
 
 /**
  * Every agent under its own name; the skills CLI writes `.agents/skills` once however many of the
- * agents that share it are picked. Preselected agents come first, then the rest in table order.
+ * agents that share it are picked. Preselected agents come first, then the rest by name.
  * Nothing is marked as installed: an agent's config folder often outlives the agent.
  * @param {Agent[]} agents
  * @param {{ initial: string[] }} options
  * @returns {Picker}
  */
 export function agentPicker(agents, options) {
-  const listed = agents.filter((agent) => agent.id !== UNIVERSAL_AGENT)
+  const listed = agents
+    .filter((agent) => agent.id !== UNIVERSAL_AGENT)
+    .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }))
   const ordered = [
     ...listed.filter((agent) => options.initial.includes(agent.id)),
     ...listed.filter((agent) => !options.initial.includes(agent.id)),

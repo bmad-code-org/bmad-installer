@@ -50,13 +50,17 @@ test('an installed module with no known version gets the plain suffix', () => {
   assert.deepEqual(picker.initialValues, ['method'])
 })
 
-test('the agent picker lists every agent by name, preselected first, then in table order', async () => {
+test('the agent picker lists every agent by name, preselected first, then alphabetically', async () => {
   const agents = await loadAgents()
   const picker = agentPicker(agents, { initial: ['cursor', 'augment'] })
   const values = picker.options.map((option) => option.value)
-  const rest = agents.filter((agent) => !['universal', 'cursor', 'augment'].includes(agent.id)).map((agent) => agent.id)
+  const rest = agents
+    .filter((agent) => !['universal', 'cursor', 'augment'].includes(agent.id))
+    .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+    .map((agent) => agent.id)
 
   assert.deepEqual(values, ['augment', 'cursor', ...rest])
+  assert.ok(values.indexOf('cline') < values.indexOf('bob') && values.indexOf('bob') < values.indexOf('openclaw'), 'IBM Bob and OpenClaw sort by name')
   assert.ok(values.includes('codex') && values.includes('gemini-cli'))
   assert.equal(values.includes('universal'), false)
   assert.equal(values.length, agents.length - 1)
