@@ -193,27 +193,20 @@ export async function chooseModules(messages, modules, options) {
 
 /**
  * Every agent under its own name; the skills CLI writes `.agents/skills` once however many of the
- * agents that share it are picked. Preselected agents come first, then the ones found on this
- * machine, then the rest in table order.
- * @param {Record<string, any>} messages
+ * agents that share it are picked. Preselected agents come first, then the rest in table order.
+ * Nothing is marked as installed: an agent's config folder often outlives the agent.
  * @param {Agent[]} agents
- * @param {{ initial: string[], found: string[] }} options
+ * @param {{ initial: string[] }} options
  * @returns {Picker}
  */
-export function agentPicker(messages, agents, options) {
-  const rank = (/** @type {Agent} */ agent) => (options.initial.includes(agent.id) ? 0 : options.found.includes(agent.id) ? 1 : 2)
-  const ordered = agents
-    .filter((agent) => agent.id !== UNIVERSAL_AGENT)
-    .map((agent, index) => ({ agent, index }))
-    .sort((a, b) => rank(a.agent) - rank(b.agent) || a.index - b.index)
-    .map(({ agent }) => agent)
+export function agentPicker(agents, options) {
+  const listed = agents.filter((agent) => agent.id !== UNIVERSAL_AGENT)
+  const ordered = [
+    ...listed.filter((agent) => options.initial.includes(agent.id)),
+    ...listed.filter((agent) => !options.initial.includes(agent.id)),
+  ]
   return {
-    // clack shows a hint only on the highlighted row, so "found" goes in the label.
-    options: ordered.map((agent) => ({
-      value: agent.id,
-      label: options.found.includes(agent.id) ? message(messages, 'agentFoundLabel', { name: agent.name }) : agent.name,
-      hint: agent.skillsDir,
-    })),
+    options: ordered.map((agent) => ({ value: agent.id, label: agent.name, hint: agent.skillsDir })),
     initialValues: options.initial,
   }
 }
@@ -221,11 +214,11 @@ export function agentPicker(messages, agents, options) {
 /**
  * @param {Record<string, any>} messages
  * @param {Agent[]} agents
- * @param {{ initial: string[], found: string[] }} options
+ * @param {{ initial: string[] }} options
  * @returns {Promise<string[]>}
  */
 export async function chooseAgents(messages, agents, options) {
-  const picker = agentPicker(messages, agents, options)
+  const picker = agentPicker(agents, options)
   const search = Object.fromEntries(agents.map((agent) => [agent.id, `${agent.id} ${agent.name}`.toLowerCase()]))
   return ensure(await autocompleteMultiselect({
     message: message(messages, 'agentsPrompt'),

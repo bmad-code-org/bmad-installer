@@ -47,7 +47,7 @@ test('--yes with no agent found installs to the universal folder only', async (t
   for (const request of only(requests)) assert.deepEqual(request.agents, ['universal'])
 })
 
-test('--yes takes the agents found on this machine, with the shared-folder ones as one', async (t) => {
+test('--yes with no pick takes the agents with a config folder, the shared-folder ones as one', async (t) => {
   const dir = await tempDir(t)
   const { prompts } = fakePrompts()
   const { cli, requests, scripts, env } = parts(dir)
@@ -97,7 +97,7 @@ test('the picker runs after the module prompt and its answer goes to every call'
 
   assert.equal(code, 0)
   assert.deepEqual(asked, ['intro', 'confirm', 'modules', 'agents'])
-  assert.deepEqual(pickers[0], { initial: [], found: ['codex'] }, 'a found agent is listed, not ticked')
+  assert.deepEqual(pickers[0], { initial: [] }, 'an agent with a config folder is not ticked')
   for (const request of only(requests)) assert.deepEqual(request.agents, ['codex', 'claude-code'])
   assert.ok(said.plain.some((text) => text.includes('npx bmad-method install -m method -t codex,claude-code -y')))
   assert.ok(said.notes.at(-1)?.includes('Agents    Codex, Claude Code'))
@@ -144,7 +144,7 @@ test('the picker ticks own-folder agents holding bmad and only the shared-folder
 
   await install(options({ directory: dir }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, env, detect }))
 
-  assert.deepEqual(pickers[0].initial, ['claude-code', 'cursor', 'codex'], 'augment has its own folder without bmad; gemini is found but was never picked')
+  assert.deepEqual(pickers[0].initial, ['claude-code', 'cursor', 'codex'], 'augment has its own folder without bmad; gemini has a config folder but was never picked')
 })
 
 test('a shared folder holding bmad ticks nothing the user did not pick', async (t) => {
@@ -171,4 +171,16 @@ test('the pick is saved as the last pick and ticked on the next run', async (t) 
   const again = parts(dir)
   await install(options({ directory: dir }), makeDeps({ prompts: second.prompts, skillsCli: again.cli, bmadScripts: again.scripts, cwd: dir, env }))
   assert.deepEqual(second.pickers[0].initial, ['codex', 'claude-code'])
+})
+
+test('--yes takes what the picker would tick before any config folder', async (t) => {
+  const dir = await tempDir(t)
+  const { prompts } = fakePrompts()
+  const { cli, requests, scripts, env } = parts(dir)
+  await saveAgentPick(['codex'], env)
+  const detect = detectWith([join(HOME, '.claude'), join(HOME, '.warp'), join(dir, '.claude', 'skills', 'bmad'), join(dir, '.agents', 'skills', 'bmad')])
+
+  await install(options({ directory: dir, yes: true }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, env, detect }))
+
+  for (const request of only(requests)) assert.deepEqual(request.agents, ['claude-code', 'codex'])
 })

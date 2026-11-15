@@ -50,17 +50,18 @@ test('an installed module with no known version gets the plain suffix', () => {
   assert.deepEqual(picker.initialValues, ['method'])
 })
 
-test('the agent picker lists every agent by name, preselected first, then the found ones', async () => {
+test('the agent picker lists every agent by name, preselected first, then in table order', async () => {
   const agents = await loadAgents()
-  const picker = agentPicker(messages, agents, { initial: ['augment'], found: ['cursor', 'claude-code'] })
+  const picker = agentPicker(agents, { initial: ['cursor', 'augment'] })
   const values = picker.options.map((option) => option.value)
+  const rest = agents.filter((agent) => !['universal', 'cursor', 'augment'].includes(agent.id)).map((agent) => agent.id)
 
-  assert.deepEqual(values.slice(0, 3), ['augment', 'claude-code', 'cursor'])
+  assert.deepEqual(values, ['augment', 'cursor', ...rest])
   assert.ok(values.includes('codex') && values.includes('gemini-cli'))
   assert.equal(values.includes('universal'), false)
   assert.equal(values.length, agents.length - 1)
-  assert.deepEqual(picker.initialValues, ['augment'])
-  assert.equal(picker.options[1].label, 'Claude Code, found on this machine')
-  assert.equal(picker.options[2].hint, '.agents/skills')
+  assert.deepEqual(picker.initialValues, ['cursor', 'augment'])
+  assert.equal(picker.options[1].label, 'Cursor')
+  assert.equal(picker.options[1].hint, '.agents/skills')
   assert.equal(picker.options[0].label, 'Augment')
 })

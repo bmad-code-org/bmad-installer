@@ -91,7 +91,6 @@ agentsPrompt: "Which coding agents should get the skills?"
 
 agentsPlaceholder: "Type to filter"
 
-agentFoundLabel: "{name}, found on this machine"
 
 
 unknownModules: |-

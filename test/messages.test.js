@@ -35,7 +35,6 @@ const keysWithValues = {
   deprecatedModule: { module: 'BMad Method', reason: 'Replaced by another module.' },
   agentsPrompt: {},
   agentsPlaceholder: {},
-  agentFoundLabel: { name: 'Claude Code' },
   unknownTools: { ids: 'nope' },
   firstInstallNotInProject: { directory: '/tmp/project' },
   repeatInstall: { command: 'npx bmad-method install -m method -t claude-code -y' },

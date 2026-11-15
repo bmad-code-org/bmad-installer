@@ -133,12 +133,11 @@ export async function pickChoices(options, deps, existing) {
 }
 
 /**
- * `--tools` wins. Without it, `--yes` takes the agents found on this machine, those sharing
- * `.agents/skills` folded into the `universal` id, or `universal` alone when none is found.
- * Otherwise the picker ticks the agents with their own folder already holding BMad here, plus
- * the shared-folder agents of the last pick when `.agents/skills` holds it; with neither, the
- * last pick. The last pick is our own saved one, else the skills CLI's without its shared-folder
- * agents. Agents found on this machine are listed first but not ticked.
+ * `--tools` wins. Otherwise the picker ticks the agents with their own folder already holding
+ * BMad here, plus the shared-folder agents of the last pick when `.agents/skills` holds it; with
+ * neither, the last pick. The last pick is our own saved one, else the skills CLI's without its
+ * shared-folder agents. `--yes` takes those same ticks; with none, the agents whose config folder
+ * is in the home folder, the way the skills CLI's own `--yes` picks, or `universal` alone.
  * @param {CliOptions} options
  * @param {CommandDeps} deps
  * @param {string} directory
@@ -149,10 +148,6 @@ export async function chooseAgents(options, deps, directory, interactive) {
   const { agents, messages, prompts } = deps
   if (options.tools) return parseToolsFlag(options.tools, agents)
   const context = (deps.detect ?? detectContext)(directory)
-  const found = detectAgents(agents, context)
-  const detected = collapseUniversal(found, agents)
-  if (!interactive) return detected.length > 0 ? detected : [UNIVERSAL_AGENT]
-
   const listed = agents.filter((agent) => agent.id !== UNIVERSAL_AGENT)
   const shared = new Set(listed.filter(isUniversal).map((agent) => agent.id))
   // The skills CLI saves every shared-folder agent it shows as locked, so its pick says nothing about those.
@@ -162,7 +157,14 @@ export async function chooseAgents(options, deps, directory, interactive) {
     ...agentsHolding(agents, BMAD_SKILL, context),
     ...(sharedFolderHolds(BMAD_SKILL, context) ? last.filter((id) => shared.has(id)) : []),
   ]
-  const picked = await prompts.chooseAgents(messages, agents, { initial: holding.length > 0 ? holding : last, found })
+  const initial = holding.length > 0 ? holding : last
+
+  if (!interactive) {
+    if (initial.length > 0) return initial
+    const detected = collapseUniversal(detectAgents(agents, context), agents)
+    return detected.length > 0 ? detected : [UNIVERSAL_AGENT]
+  }
+  const picked = await prompts.chooseAgents(messages, agents, { initial })
   await saveAgentPick(picked, deps.env)
   return picked
 }
