@@ -55,18 +55,20 @@ export function requiredCodes(picked, modules) {
 }
 
 /**
- * One skills add per module, for every skill in the module's folder. A module already installed
- * with nothing missing is left alone, since `update` is what refreshes it, unless a ref was asked for.
+ * One skills add per module, for every skill in the module's folder. A module is left alone,
+ * since `update` is what refreshes it, only when it is installed with nothing missing and every
+ * picked agent's folder already holds its record; a ref asked for always re-adds it.
  * @param {ModuleDefinition[]} chosen
  * @param {StatusReport | null} installed
+ * @param {(record: string) => boolean} [heldByEveryAgent]
  * @returns {InstallCall[]}
  */
-export function moduleCalls(chosen, installed) {
+export function moduleCalls(chosen, installed, heldByEveryAgent = () => true) {
   const entries = new Map((installed?.modules ?? []).map((entry) => [entry.module, entry]))
   return chosen
     .filter((module) => {
       const entry = entries.get(module.code)
-      return module.ref || !entry || entry.absent_skills.length > 0
+      return module.ref || !entry || entry.absent_skills.length > 0 || !heldByEveryAgent(module.record)
     })
     .map((module) => ({ source: module.source, skills: [ALL_SKILLS], label: module.name }))
 }
@@ -80,7 +82,16 @@ export function moduleCalls(chosen, installed) {
 export function repeatCommand(chosen, agents) {
   const picked = chosen.filter((module) => !module.always || module.ref)
   const codes = (picked.length > 0 ? picked : chosen).map((module) => (module.ref ? `${module.code}#${module.ref}` : module.code))
-  return `npx bmad-method install -m ${codes.join(',')} -t ${agents.join(',')} -y`
+  return `npx bmad-method install -m ${shellWord(codes.join(','))} -t ${agents.join(',')} -y`
+}
+
+/**
+ * Single-quotes a word for a POSIX shell when it holds anything but plain path characters.
+ * @param {string} word
+ * @returns {string}
+ */
+function shellWord(word) {
+  return /^[\w@%+=:,./#~-]+$/.test(word) ? word : `'${word.replaceAll("'", "'\\''")}'`
 }
 
 /**

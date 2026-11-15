@@ -41,3 +41,13 @@ test('lockedRef gives the ref a listed module was installed from, only for its o
   assert.equal(lockedRef(entry, `${source}#main`), undefined, 'a ref already on the source wins')
   assert.equal(lockedRef(undefined, source), undefined)
 })
+
+test('lockedRef keeps the ref of a lock entry written from a GitHub git URL of the same repository', () => {
+  const source = 'bmad-code-org/BMAD-METHOD/skills/method'
+  const git = (/** @type {string} */ url) => ({ source: url, sourceUrl: url, sourceType: 'git', ref: 'dev' })
+  assert.equal(lockedRef(git('git@github.com:bmad-code-org/BMAD-METHOD.git'), source), 'dev')
+  assert.equal(lockedRef(git('https://github.com/bmad-code-org/bmad-method.git'), source), 'dev')
+  assert.equal(lockedRef(git('ssh://git@github.com/bmad-code-org/BMAD-METHOD'), source), 'dev')
+  assert.equal(lockedRef(git('git@gitlab.com:bmad-code-org/BMAD-METHOD.git'), source), undefined)
+  assert.equal(lockedRef(git('git@github.com:someone/BMAD-METHOD.git'), source), undefined)
+})

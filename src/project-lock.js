@@ -50,6 +50,19 @@ export function moduleSourceFromLock(entry, directory) {
  */
 export function lockedRef(entry, source) {
   if (!entry?.ref || source.includes('#')) return undefined
-  const github = !entry.sourceType || entry.sourceType === 'github'
-  return github && entry.source === repoOf(source) ? entry.ref : undefined
+  return lockedGitHubRepo(entry) === repoOf(source).toLowerCase() ? entry.ref : undefined
+}
+
+/**
+ * The `owner/repo` on github.com a lock entry came from, in lower case: from a shorthand, or from
+ * an https or SSH git URL. Undefined for any other host or source type.
+ * @param {LockEntry} entry
+ * @returns {string | undefined}
+ */
+function lockedGitHubRepo(entry) {
+  if (!entry.sourceType || entry.sourceType === 'github') return entry.source?.toLowerCase()
+  if (entry.sourceType !== 'git') return undefined
+  const url = entry.sourceUrl || entry.source || ''
+  const match = /^(?:https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/i.exec(url)
+  return match?.[1].toLowerCase()
 }

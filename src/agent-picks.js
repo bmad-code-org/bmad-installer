@@ -1,4 +1,5 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 
@@ -64,8 +65,13 @@ export async function savedAgentPick(env = process.env, homeDir = homedir()) {
  */
 export async function saveAgentPick(agents, env = process.env, homeDir = homedir()) {
   const path = savedPickPath(env, homeDir)
+  // Written aside and renamed over, so another run never reads a half-written pick.
+  const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`
   try {
     await mkdir(dirname(path), { recursive: true })
-    await writeFile(path, `${JSON.stringify({ agents }, null, 2)}\n`, 'utf8')
-  } catch {}
+    await writeFile(temporary, `${JSON.stringify({ agents }, null, 2)}\n`, 'utf8')
+    await rename(temporary, path)
+  } catch {
+    await rm(temporary, { force: true }).catch(() => {})
+  }
 }

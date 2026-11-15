@@ -1,3 +1,4 @@
+import { detectContext, everyAgentHolds } from '../agents.js'
 import { SETUP_NEXT } from '../bmad-scripts.js'
 import { message } from '../messages.js'
 import { nodeFailureHint, runPreflight } from '../preflight.js'
@@ -54,7 +55,10 @@ export async function install(options, deps) {
     directory,
     agents,
     spinner: 'installingSpinner',
-    plan: () => moduleCalls(chosen, existing.report),
+    plan: () => {
+      const context = (deps.detect ?? detectContext)(directory)
+      return moduleCalls(chosen, existing.report, (record) => everyAgentHolds(deps.agents, agents, record, context))
+    },
   })
   if (!bmadSkillDir || !report) {
     prompts.fail(failures.length > 0

@@ -144,3 +144,25 @@ test('a listed module stays on the branch the project lock recorded for its reco
     'bmad-code-org/BMAD-METHOD/skills/method#dev',
   ])
 })
+
+test('an update that could not read the install first says so and exits 1', async () => {
+  const { prompts, said } = fakePrompts()
+  const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad'), listed('bmod-method')]] })
+  let calls = 0
+  const scripts = /** @type {any} */ ({
+    async status() {
+      calls += 1
+      if (calls === 1) throw new Error('setup.py --status exited with 1')
+      return statusOf()
+    },
+    async migrations() {
+      return []
+    },
+  })
+
+  const code = await update(updateOptions(), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts }))
+
+  assert.equal(code, 1)
+  assert.ok(only(requests).length > 0, 'the listed modules still update')
+  assert.ok(said.warns.includes(messages.updateUnreadInstall))
+})

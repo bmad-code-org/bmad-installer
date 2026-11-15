@@ -125,3 +125,11 @@ test('sourceAtRef adds a ref and replaces one already there', () => {
   assert.equal(sourceAtRef('acme/mods/skills/widgets', 'dev'), 'acme/mods/skills/widgets#dev')
   assert.equal(sourceAtRef('acme/mods/skills/widgets#main', 'dev'), 'acme/mods/skills/widgets#dev')
 })
+
+test('a ref holding a slash stays a ref on a listed code or alias', async () => {
+  const modules = await loadModules()
+  assert.equal(isModuleSource('method#feature/install'), false)
+  assert.equal(isModuleSource('acme/mods#feature/install'), true)
+  assert.deepEqual(parseModulesFlag('method#feature/install,cis', modules), ['method#feature/install', 'cis'])
+  assert.deepEqual(parseModulesFlag('bmm#fix/x', modules), ['method#fix/x'])
+})

@@ -124,3 +124,18 @@ export function parseToolsFlag(value, agents) {
   if (ids.length === 0) throw new AgentsError(value)
   return ids
 }
+
+/**
+ * Whether every one of `ids` has `skill` in its skills folder in the project.
+ * @param {Agent[]} agents
+ * @param {string[]} ids
+ * @param {string} skill
+ * @param {DetectContext} context
+ * @returns {boolean}
+ */
+export function everyAgentHolds(agents, ids, skill, context) {
+  return ids.every((id) => {
+    const agent = agents.find((entry) => entry.id === id)
+    return agent !== undefined && context.exists(join(context.project, agent.skillsDir, skill))
+  })
+}

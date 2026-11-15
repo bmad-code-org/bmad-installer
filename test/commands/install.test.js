@@ -1,8 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { join } from 'node:path'
 import { install } from '../../src/commands/install.js'
 import {
   RECORDS,
+  detectWith,
   fakeBmadScripts,
   fakePrompts,
   fakeRunner,
@@ -17,6 +19,15 @@ import {
 } from '../helpers/command-fakes.js'
 
 /** @typedef {import('../../src/bmad-scripts.js').Migration} Migration */
+
+/**
+ * A project whose `folder` holds every module record.
+ * @param {string} dir
+ * @param {string} folder
+ */
+function heldBy(dir, folder) {
+  return detectWith(['bmod-core-tools', 'bmod-method', 'bmod-toolsmith', 'bmad-founder-agent-advisor'].map((record) => join(dir, folder, record)))
+}
 
 test('--yes takes the default modules and asks nothing', async (t) => {
   const dir = await tempDir(t)
@@ -180,7 +191,7 @@ test('unticking an installed module keeps it and says so', async (t) => {
   installed.modules.forEach((entry) => { entry.absent_skills = [] })
   const { scripts } = fakeBmadScripts({ statuses: [installed, installed, installed] })
 
-  await install(options({ directory: dir }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }))
+  await install(options({ directory: dir }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, detect: heldBy(dir, '.claude/skills') }))
 
   assert.ok(said.warns.includes(messages.modulesKept.replace('{modules}', 'BMad Method')), said.warns.join('\n'))
   assert.deepEqual(only(requests).map((request) => request.source), ['bmad-code-org/BMAD-METHOD/skills/founder'])
@@ -235,8 +246,8 @@ test('--modules with code#ref installs that module from the branch, even when it
   const { scripts } = fakeBmadScripts({ statuses: [installed, installed] })
 
   await install(
-    options({ directory: dir, yes: true, modules: 'method#dev' }),
-    makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }),
+    options({ directory: dir, yes: true, modules: 'method#dev', tools: 'claude-code' }),
+    makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, detect: heldBy(dir, '.claude/skills') }),
   )
 
   assert.deepEqual(only(requests).map((request) => request.source), ['bmad-code-org/BMAD-METHOD/skills/method#dev'])
@@ -269,4 +280,29 @@ test('a required module already installed is not announced', async (t) => {
   await install(options({ directory: dir, yes: true, modules: 'bmad-loop' }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }))
 
   assert.equal(said.says.some((line) => line.startsWith('Also installing')), false)
+})
+
+test('a module complete for one agent is still added for a newly picked agent', async (t) => {
+  const dir = await tempDir(t)
+  const installed = statusOf()
+  for (const entry of installed.modules) entry.absent_skills = []
+  const { prompts } = fakePrompts()
+  const { cli, requests } = fakeSkillsCli({ lists: [RECORDS.map(listed), RECORDS.map(listed)] })
+  const { scripts } = fakeBmadScripts({ statuses: [installed, installed] })
+
+  await install(
+    options({ directory: dir, yes: true, modules: 'method', tools: 'codex' }),
+    makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, detect: heldBy(dir, '.claude/skills') }),
+  )
+  assert.deepEqual(only(requests).map((request) => [request.source, request.agents]), [
+    ['bmad-code-org/BMAD-METHOD/skills/core-tools', ['codex']],
+    ['bmad-code-org/BMAD-METHOD/skills/method', ['codex']],
+  ])
+
+  const again = fakeSkillsCli({ lists: [RECORDS.map(listed), RECORDS.map(listed)] })
+  await install(
+    options({ directory: dir, yes: true, modules: 'method', tools: 'claude-code' }),
+    makeDeps({ prompts, skillsCli: again.cli, bmadScripts: fakeBmadScripts({ statuses: [installed, installed] }).scripts, cwd: dir, detect: heldBy(dir, '.claude/skills') }),
+  )
+  assert.deepEqual(only(again.requests), [], 'the same agent again adds nothing')
 })

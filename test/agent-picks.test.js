@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { lastPickedAgents, saveAgentPick, savedAgentPick, savedPickPath, skillsLockPath } from '../src/agent-picks.js'
@@ -51,4 +51,14 @@ test('saveAgentPick and savedAgentPick round-trip, null before the first pick', 
   assert.deepEqual(await savedAgentPick(env), ['claude-code', 'codex'])
   await writeFile(savedPickPath(env), 'not json')
   assert.equal(await savedAgentPick(env), null)
+})
+
+test('saveAgentPick leaves no temporary file behind', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'bmad-picks-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const env = { HOME: dir }
+  await saveAgentPick(['codex'], env)
+  await saveAgentPick(['claude-code'], env)
+  assert.deepEqual(await savedAgentPick(env), ['claude-code'])
+  assert.deepEqual(await readdir(join(dir, '.bmad')), ['last-agents.json'])
 })

@@ -140,12 +140,13 @@ export function findModule(modules, codeOrAlias) {
 }
 
 /**
- * A module code never holds a slash; anything that does is a source the skills CLI can install
- * from: `owner/repo/folder#ref`, a git URL or a local path.
+ * A module code never holds a slash; anything that does before its `#ref` is a source the skills
+ * CLI can install from: `owner/repo/folder#ref`, a git URL or a local path. A ref may hold one.
  * @param {string} token
  */
 export function isModuleSource(token) {
-  return token.includes('/') || token.includes('\\') || token === '.' || token === '~'
+  const base = token.split('#')[0]
+  return base.includes('/') || base.includes('\\') || base === '.' || base === '~'
 }
 
 /**

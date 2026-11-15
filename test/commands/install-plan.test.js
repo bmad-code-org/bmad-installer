@@ -118,3 +118,18 @@ test('a picked module brings the modules it requires, unless they were picked to
   const withRef = chosenModules(['bmad-loop', 'method#dev'], modules)
   assert.equal(withRef[1].source, 'bmad-code-org/BMAD-METHOD/skills/method#dev')
 })
+
+test('repeatCommand quotes a module list a shell would split', () => {
+  const chosen = chosenModules(['/work/My Modules/widgets'], modules)
+  assert.equal(repeatCommand(chosen, ['claude-code']), "npx bmad-method install -m '/work/My Modules/widgets' -t claude-code -y")
+  assert.equal(repeatCommand(chosenModules(["/work/o'brien"], modules), ['codex']), "npx bmad-method install -m '/work/o'\\''brien' -t codex -y")
+  assert.equal(repeatCommand(chosenModules(['method#feature/x', 'acme/mods'], modules), ['codex']), 'npx bmad-method install -m method#feature/x,acme/mods -t codex -y')
+})
+
+test('chosenModules gives a ref with a slash to the listed module', () => {
+  const chosen = chosenModules(['method#feature/install'], modules)
+  assert.deepEqual(chosen.map((module) => module.source), [
+    'bmad-code-org/BMAD-METHOD/skills/core-tools',
+    'bmad-code-org/BMAD-METHOD/skills/method#feature/install',
+  ])
+})
