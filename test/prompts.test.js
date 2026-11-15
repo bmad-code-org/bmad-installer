@@ -22,7 +22,7 @@ const fresh = { installedCodes: /** @type {string[]} */ ([]), installedVersions:
 
 test('the module picker hides the always modules', () => {
   const picker = modulePicker(messages, modules, fresh)
-  assert.deepEqual(picker.options.map((option) => option.value), ['method', 'toolsmith', 'founder', 'cis'])
+  assert.deepEqual(picker.options.map((option) => option.value), ['method', 'toolsmith', 'founder', 'tea', 'cis'])
   assert.equal(picker.options.some((option) => option.value === 'core-tools'), false)
 })
 
@@ -41,7 +41,7 @@ test('an existing install ticks what is installed and labels its version', () =>
 
   assert.deepEqual(picker.initialValues, ['cis'])
   assert.equal(picker.options[0].label, 'BMad Method')
-  assert.equal(picker.options[3].label, `${must('cis').name} ${messages.installedSuffix.replace('{version}', '6.13.0-next')}`)
+  assert.equal(picker.options.find((option) => option.value === 'cis')?.label, `${must('cis').name} ${messages.installedSuffix.replace('{version}', '6.13.0-next')}`)
 })
 
 test('an installed module with no known version gets the plain suffix', () => {

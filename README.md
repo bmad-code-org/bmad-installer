@@ -63,7 +63,7 @@ The skills CLI decides. With one agent it copies the skills into that agent's fo
 | `-h, --help` | Show the help |
 | `-v, --version` | Show the version |
 
-`--modules` takes module codes: `method` (alias `bmm`), `toolsmith`, `founder` and `cis`. Without `--modules`, `--yes` installs `method` and `toolsmith`. The core tools module installs on every run. Each module installs whole, with one `npx skills add <owner/repo/folder> -s '*'` for its folder; a module already installed with nothing missing is skipped.
+`--modules` takes module codes: `method` (alias `bmm`), `toolsmith`, `founder`, `tea` and `cis`. Without `--modules`, `--yes` installs `method` and `toolsmith`. The core tools module installs on every run. Each module installs whole, with one `npx skills add <owner/repo/folder> -s '*'` for its folder; a module already installed with nothing missing is skipped.
 
 ### A branch or tag
 

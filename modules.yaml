@@ -29,6 +29,13 @@ modules:
     source: bmad-code-org/BMAD-METHOD/skills/founder
     record: bmad-founder-agent-advisor
 
+  - code: tea
+    name: BMad Test Architect
+    description: Murat, for test planning, automation, evaluation and release decisions
+    # The repository root also holds test fixture skills, so the source is its skills folder.
+    source: bmad-code-org/bmad-method-test-architecture-enterprise/skills
+    record: bmod-tea
+
   - code: cis
     name: BMad Creative Intelligence Suite
     description: Innovation, brainstorming, problem-solving
