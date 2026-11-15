@@ -2,7 +2,7 @@
 
 ## What it does
 
-`bmad-method` installs BMad modules into a project as agent skills. It asks which modules you want, runs the Vercel skills CLI (the `skills` npm package, shipped as a dependency) to install them, then reads the install with the `bmad` skill's setup script and prints a report. It copies no files itself, keeps no state of its own, and never removes anything.
+`bmad-method` installs BMad modules into a project as agent skills. It asks which modules you want, runs the Vercel skills CLI (the `skills` npm package, shipped as a dependency) to install them, then reads the install with the `bmad` skill's setup script and prints a report. It copies no files itself, keeps no state of its own beyond your last agent pick, and never removes anything.
 
 ## Install commands
 
@@ -39,7 +39,7 @@ An interactive run needs a real terminal. It refuses to start inside a coding ag
 
 The agent list is the skills CLI's own, copied into `agents.json` from the skills CLI version this installer ships with. `npx bmad-method --list-tools` prints the ids. Many agents (Codex, Cursor, Gemini CLI, GitHub Copilot and others) read the same `.agents/skills` folder; the skills CLI writes it once however many of them you pick.
 
-- Interactive without `--tools`: a searchable picker lists every agent by name, with the ones found on this machine first. It ticks the agents that already hold BMad in this project, otherwise your last pick in the skills CLI, otherwise nothing.
+- Interactive without `--tools`: a searchable picker lists every agent by name, with the ones found on this machine first. Found agents are not ticked. It ticks the agents with their own folder that already hold BMad in this project; when `.agents/skills` holds BMad it adds only the agents sharing that folder that you picked last time. With neither, it ticks your last pick, otherwise nothing. Your answer is saved as the last pick, in the same place the skills CLI keeps its own.
 - `--tools <ids>`: every install goes to those agents and the picker never shows. Ids and display names both work. An unknown id stops the run before anything installs.
 - `--yes` without `--tools`: every agent found on this machine, the way the skills CLI's own `--yes` picks, with those sharing `.agents/skills` written as the one `universal` id. When none is found, `universal` alone.
 

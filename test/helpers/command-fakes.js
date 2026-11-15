@@ -1,3 +1,4 @@
+import { mkdtempSync } from 'node:fs'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -148,7 +149,7 @@ export function makeDeps(parts) {
     agents,
     detect: parts.detect ?? detectWith(),
     prompts: parts.prompts,
-    env: parts.env ?? {},
+    env: parts.env ?? { XDG_STATE_HOME: mkdtempSync(join(tmpdir(), 'bmad-state-')) },
     cwd: parts.cwd ?? '/project',
     version: '6.13.0-next.0',
     terminal: () => true,

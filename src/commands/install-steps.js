@@ -1,7 +1,16 @@
 import { mkdir, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { UNIVERSAL_AGENT, agentsHolding, collapseUniversal, detectAgents, detectContext, parseToolsFlag } from '../agents.js'
-import { lastPickedAgents } from '../harness.js'
+import {
+  UNIVERSAL_AGENT,
+  agentsHolding,
+  collapseUniversal,
+  detectAgents,
+  detectContext,
+  isUniversal,
+  parseToolsFlag,
+  sharedFolderHolds,
+} from '../agents.js'
+import { lastPickedAgents, saveLastPickedAgents } from '../harness.js'
 import { BMAD_SKILL, inspectInstall, installedModuleCodes } from '../installed.js'
 import { message } from '../messages.js'
 import { defaultCodes, findModule, parseModulesFlag } from '../modules.js'
@@ -126,8 +135,10 @@ export async function pickChoices(options, deps, existing) {
 /**
  * `--tools` wins. Without it, `--yes` takes the agents found on this machine, those sharing
  * `.agents/skills` folded into the `universal` id, or `universal` alone when none is found.
- * Otherwise the picker preselects the agents already holding BMad here, else the last pick in the
- * skills CLI, else nothing; agents found on this machine are listed first but not ticked.
+ * Otherwise the picker ticks the agents with their own folder already holding BMad here, plus
+ * the shared-folder agents of the last pick when `.agents/skills` holds it; with neither, the
+ * last pick. Agents found on this machine are listed first but not ticked. The answer is saved
+ * as the last pick.
  * @param {CliOptions} options
  * @param {CommandDeps} deps
  * @param {string} directory
@@ -142,11 +153,16 @@ export async function chooseAgents(options, deps, directory, interactive) {
   const detected = collapseUniversal(found, agents)
   if (!interactive) return detected.length > 0 ? detected : [UNIVERSAL_AGENT]
 
-  const listed = new Set(agents.filter((agent) => agent.id !== UNIVERSAL_AGENT).map((agent) => agent.id))
-  const holding = agentsHolding(agents, BMAD_SKILL, context, found)
-  const last = (await lastPickedAgents(deps.env)).filter((id) => listed.has(id))
-  const initial = holding.length > 0 ? holding : last
-  return prompts.chooseAgents(messages, agents, { initial, found })
+  const listed = agents.filter((agent) => agent.id !== UNIVERSAL_AGENT)
+  const last = (await lastPickedAgents(deps.env)).filter((id) => listed.some((agent) => agent.id === id))
+  const shared = new Set(listed.filter(isUniversal).map((agent) => agent.id))
+  const holding = [
+    ...agentsHolding(agents, BMAD_SKILL, context),
+    ...(sharedFolderHolds(BMAD_SKILL, context) ? last.filter((id) => shared.has(id)) : []),
+  ]
+  const picked = await prompts.chooseAgents(messages, agents, { initial: holding.length > 0 ? holding : last, found })
+  await saveLastPickedAgents(picked, deps.env)
+  return picked
 }
 
 /**

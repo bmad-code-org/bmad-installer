@@ -80,20 +80,26 @@ export function collapseUniversal(ids, agents) {
 }
 
 /**
- * The agents whose skills folder in the project already holds `skill`. Every agent that reads
- * `.agents/skills` would count, so of those only the ones in `found` do.
+ * The agents with a folder of their own whose copy in the project already holds `skill`.
+ * `.agents/skills` holding it says nothing about which of the agents sharing it the user wants.
  * @param {Agent[]} agents
  * @param {string} skill
  * @param {DetectContext} context
- * @param {string[]} found
  * @returns {string[]}
  */
-export function agentsHolding(agents, skill, context, found) {
+export function agentsHolding(agents, skill, context) {
   return agents
-    .filter((agent) => agent.id !== UNIVERSAL_AGENT)
+    .filter((agent) => !isUniversal(agent))
     .filter((agent) => context.exists(join(context.project, agent.skillsDir, skill)))
-    .filter((agent) => !isUniversal(agent) || found.includes(agent.id))
     .map((agent) => agent.id)
+}
+
+/**
+ * @param {string} skill
+ * @param {DetectContext} context
+ */
+export function sharedFolderHolds(skill, context) {
+  return context.exists(join(context.project, UNIVERSAL_DIR, skill))
 }
 
 /**
