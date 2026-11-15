@@ -36,15 +36,15 @@ test('lastPickedAgents reads the string ids of the last pick', async (t) => {
   assert.deepEqual(await lastPickedAgents(env), [])
 })
 
-test('savedPickPath follows XDG_STATE_HOME, else ~/.local/state', () => {
-  assert.equal(savedPickPath({ XDG_STATE_HOME: '/state' }, '/home/user'), join('/state', 'bmad-method', 'last-agents.json'))
-  assert.equal(savedPickPath({}, '/home/user'), join('/home/user', '.local', 'state', 'bmad-method', 'last-agents.json'))
+test('savedPickPath is in ~/.bmad', () => {
+  assert.equal(savedPickPath({ HOME: '/home/env' }, '/home/user'), join('/home/env', '.bmad', 'last-agents.json'))
+  assert.equal(savedPickPath({}, '/home/user'), join('/home/user', '.bmad', 'last-agents.json'))
 })
 
 test('saveAgentPick and savedAgentPick round-trip, null before the first pick', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'bmad-harness-'))
   t.after(() => rm(dir, { recursive: true, force: true }))
-  const env = { XDG_STATE_HOME: dir }
+  const env = { HOME: dir }
 
   assert.equal(await savedAgentPick(env), null)
   await saveAgentPick(['claude-code', 'codex'], env)

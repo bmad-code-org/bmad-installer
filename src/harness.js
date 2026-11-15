@@ -33,14 +33,13 @@ export async function lastPickedAgents(env = process.env, homeDir = homedir()) {
 }
 
 /**
- * Where our own last pick lives: `$XDG_STATE_HOME/bmad-method`, else `~/.local/state/bmad-method`.
+ * Our own last pick lives in `~/.bmad`, BMad's per-user folder.
  * @param {NodeJS.ProcessEnv} [env]
  * @param {string} [homeDir]
  * @returns {string}
  */
 export function savedPickPath(env = process.env, homeDir = homedir()) {
-  const stateHome = env.XDG_STATE_HOME || join(homeDir, '.local', 'state')
-  return join(stateHome, 'bmad-method', PICK_FILE)
+  return join(env.HOME || homeDir, '.bmad', PICK_FILE)
 }
 
 /**

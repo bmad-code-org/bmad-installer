@@ -24,7 +24,7 @@ import {
 function parts(dir) {
   const { cli, requests } = fakeSkillsCli({ lists: [[], RECORDS.map(listed)] })
   const { scripts } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
-  return { cli, requests, scripts, env: { XDG_STATE_HOME: join(dir, 'state') } }
+  return { cli, requests, scripts, env: { HOME: dir, XDG_STATE_HOME: join(dir, 'state') } }
 }
 
 /** @param {string} dir @param {string[]} agents */

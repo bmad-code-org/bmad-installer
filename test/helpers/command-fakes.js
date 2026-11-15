@@ -135,6 +135,12 @@ export function fakeRunner(script = {}) {
   return { runner, calls }
 }
 
+/** A throwaway HOME and state folder, so no test reads or writes the real ones. */
+function isolatedHome() {
+  const home = mkdtempSync(join(tmpdir(), 'bmad-home-'))
+  return { HOME: home, XDG_STATE_HOME: join(home, '.state') }
+}
+
 /**
  * @param {{ prompts: any, skillsCli: any, bmadScripts: any, cwd?: string, env?: NodeJS.ProcessEnv, runner?: Runner, detect?: ReturnType<typeof detectWith> }} parts
  * @returns {CommandDeps}
@@ -149,7 +155,7 @@ export function makeDeps(parts) {
     agents,
     detect: parts.detect ?? detectWith(),
     prompts: parts.prompts,
-    env: parts.env ?? { XDG_STATE_HOME: mkdtempSync(join(tmpdir(), 'bmad-state-')) },
+    env: { ...isolatedHome(), ...parts.env },
     cwd: parts.cwd ?? '/project',
     version: '6.13.0-next.0',
     node: '24.0.0',
