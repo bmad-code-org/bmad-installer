@@ -1,7 +1,7 @@
 import { resolve } from 'node:path'
 import { inspectInstall } from '../installed.js'
 import { message } from '../messages.js'
-import { runPreflight } from '../preflight.js'
+import { nodeFailureHint, runPreflight } from '../preflight.js'
 import { renderMigrations } from '../report.js'
 import { showEnding } from './ending.js'
 import { selectMigrations, versionsByCode } from './install-plan.js'
@@ -34,7 +34,7 @@ async function optionalStatus(deps, bmadSkillDir, projectRoot) {
  */
 export async function update(options, deps, context = {}) {
   const { bmadScripts, messages, modules, prompts, runner, skillsCli, cwd } = deps
-  if (!context.checked) await runPreflight({ interactive: false, runner, messages, warn: prompts.warn })
+  if (!context.checked) await runPreflight({ interactive: false, runner, messages })
 
   const directory = resolve(cwd, options.directory ?? cwd)
   const before = await inspectInstall(directory, skillsCli)
@@ -60,6 +60,8 @@ export async function update(options, deps, context = {}) {
   const migrationText = renderMigrations(migrations, messages)
   if (migrationText) prompts.showNote(migrationText)
 
+  const hint = result.code === 0 ? null : nodeFailureHint(messages, deps.node)
+  if (hint) prompts.warn(hint)
   showEnding(deps, { report, failures: [], directory, updated: true })
 
   return result.code === 0 ? 0 : 1

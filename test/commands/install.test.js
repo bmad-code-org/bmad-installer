@@ -99,6 +99,22 @@ test('a record call that failed is explained', async (t) => {
   assert.ok(said.fails[0].includes('Failed to clone repository'))
 })
 
+test('a failure on a Node below the skills CLI floor says so, a clean run never does', async (t) => {
+  const dir = await tempDir(t)
+  const hint = messages.nodeBelowSkillsFloor.replace('{version}', '22.13.0')
+  const failing = fakePrompts()
+  const { cli } = fakeSkillsCli({ lists: [[], []], add: () => [{ status: 'failed', error: 'Failed to clone repository' }] })
+  const { scripts } = fakeBmadScripts({ statuses: [statusOf()] })
+  await install(options({ directory: dir, yes: true }), { ...makeDeps({ prompts: failing.prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }), node: '22.13.0' })
+  assert.ok(failing.said.fails[0].endsWith(hint), failing.said.fails[0])
+
+  const clean = fakePrompts()
+  const ok = fakeSkillsCli({ lists: [[], RECORDS.map(listed)] })
+  const okScripts = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
+  await install(options({ directory: dir, yes: true }), { ...makeDeps({ prompts: clean.prompts, skillsCli: ok.cli, bmadScripts: okScripts.scripts, cwd: dir }), node: '22.13.0' })
+  assert.equal([...clean.said.warns, ...clean.said.fails].some((text) => text.includes('22.13.0')), false)
+})
+
 test('migrations are listed only for the major jump this run made', async (t) => {
   const dir = await tempDir(t)
   const before = statusOf()

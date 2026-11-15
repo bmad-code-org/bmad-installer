@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   PreflightError,
   hasTerminal,
+  nodeFailureHint,
   nodeVersionState,
   runPreflight,
   uvVersion,
@@ -118,17 +119,13 @@ test('hasTerminal needs both streams to be a TTY', () => {
 })
 
 test('runPreflight passes when uv answers', async () => {
-  /** @type {string[]} */
-  const warnings = []
-  await runPreflight({
-    interactive: false,
-    runner: uvOk(),
-    messages,
-    warn: (text) => warnings.push(text),
-    platform: 'darwin',
-  })
-  assert.equal(warnings.length, nodeVersionState() === 'warn' ? 1 : 0)
-  if (warnings.length === 1) assert.ok(warnings[0].includes(process.versions.node))
+  await runPreflight({ interactive: false, runner: uvOk(), messages, platform: 'darwin' })
+})
+
+test('nodeFailureHint speaks only for a Node below the skills CLI floor', () => {
+  assert.equal(nodeFailureHint(messages, '22.13.0'), 'Node 22.13.0 is below the floor.')
+  assert.equal(nodeFailureHint(messages, '22.20.0'), null)
+  assert.equal(nodeFailureHint(messages, '24.1.0'), null)
 })
 
 test('runPreflight stops with the platform install command when uv is missing', async () => {
@@ -137,7 +134,6 @@ test('runPreflight stops with the platform install command when uv is missing', 
       interactive: false,
       runner: fakeRunner({ code: null, error: 'spawn uv ENOENT' }),
       messages,
-      warn: () => {},
       platform: 'darwin',
     }),
     (error) => error instanceof PreflightError && error.message === 'uv is missing. Install it with brew install uv',
@@ -150,7 +146,6 @@ test('runPreflight falls back to the linux install command', async () => {
       interactive: false,
       runner: fakeRunner({ code: 1 }),
       messages,
-      warn: () => {},
       platform: 'freebsd',
     }),
     (error) => error instanceof PreflightError && error.message === 'uv is missing. Install it with curl uv',
@@ -161,7 +156,7 @@ test('runPreflight stops a Windows node launched from a WSL shell', async () => 
   process.env.WSL_DISTRO_NAME = 'Ubuntu'
   try {
     await assert.rejects(
-      () => runPreflight({ interactive: false, runner: uvOk(), messages, warn: () => {}, platform: 'win32' }),
+      () => runPreflight({ interactive: false, runner: uvOk(), messages, platform: 'win32' }),
       (error) => error instanceof PreflightError && error.message === messages.wslWindowsNode,
     )
   } finally {
@@ -172,7 +167,7 @@ test('runPreflight stops a Windows node launched from a WSL shell', async () => 
 test('runPreflight requires a terminal for an interactive run', async (t) => {
   if (hasTerminal()) return t.skip('attached to a terminal')
   await assert.rejects(
-    () => runPreflight({ interactive: true, runner: uvOk(), messages, warn: () => {}, platform: 'darwin' }),
+    () => runPreflight({ interactive: true, runner: uvOk(), messages, platform: 'darwin' }),
     (error) => error instanceof PreflightError && error.message === messages.needsTerminal,
   )
 })

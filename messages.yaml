@@ -1,6 +1,6 @@
 intro: |-
   Installs BMad modules as agent skills. Free and open source.
-  You need uv installed. Docs: https://docs.bmad-method.org
+  Docs: https://docs.bmad-method.org
 
 updateAvailable: |-
   You are using version {current} but {latest} is available.
@@ -12,8 +12,8 @@ nodeTooOld: |-
   Install Node 22, then run this again.
 
 nodeBelowSkillsFloor: |-
-  Node {version} is below the 22.20.0 the skills CLI asks for.
-  Installs usually still work. Upgrade Node if you hit errors.
+  Node {version} is below the 22.20.0 the skills CLI asks for,
+  which may be why this failed. Upgrade Node and try again.
 
 uvMissing: |-
   uv is not installed. The BMad scripts need it.

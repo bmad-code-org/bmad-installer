@@ -162,7 +162,6 @@ test('intro is two lines with the docs link', () => {
   const text = message(loaded, 'intro')
   assert.equal(text.split('\n').length, 2)
   assert.ok(text.includes('https://docs.bmad-method.org'))
-  assert.ok(text.includes('uv'))
 })
 
 test('render fills placeholders and throws when a value is missing', () => {

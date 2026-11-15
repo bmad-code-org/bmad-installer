@@ -1,6 +1,6 @@
 import { inspectInstall } from '../installed.js'
 import { message } from '../messages.js'
-import { runPreflight } from '../preflight.js'
+import { nodeFailureHint, runPreflight } from '../preflight.js'
 import { renderFailures, renderMigrations } from '../report.js'
 import { showEnding } from './ending.js'
 import {
@@ -40,6 +40,7 @@ import { update } from './update.js'
  *   env: NodeJS.ProcessEnv,
  *   cwd: string,
  *   version: string,
+ *   node?: string,
  *   terminal?: () => boolean,
  *   agent?: () => Promise<string | null>
  * }} CommandDeps
@@ -63,7 +64,6 @@ export async function install(options, deps) {
     interactive,
     runner,
     messages,
-    warn: prompts.warn,
     terminal: deps.terminal,
     agent: deps.agent,
   })
@@ -109,7 +109,7 @@ export async function install(options, deps) {
   }
   if (!bmadSkillDir || !report) {
     prompts.fail(failures.length > 0
-      ? renderFailures(failures, messages)
+      ? [renderFailures(failures, messages), nodeFailureHint(messages, deps.node)].filter(Boolean).join('\n')
       : message(messages, 'firstInstallNotInProject', { directory }))
     return 1
   }

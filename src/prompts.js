@@ -40,7 +40,7 @@ function ensure(value) {
  */
 export function showIntro(messages, title) {
   intro(title)
-  note(message(messages, 'intro'))
+  log.message(message(messages, 'intro'))
 }
 
 /**

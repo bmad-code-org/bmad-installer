@@ -1,5 +1,6 @@
 import { UNIVERSAL_AGENT } from '../agents.js'
 import { message } from '../messages.js'
+import { nodeFailureHint } from '../preflight.js'
 import { problemLines, renderSummary } from '../report.js'
 
 /** @typedef {import('../bmad-scripts.js').StatusReport} StatusReport */
@@ -15,6 +16,8 @@ import { problemLines, renderSummary } from '../report.js'
 export function showEnding(deps, run) {
   const { messages, modules, prompts } = deps
   const problems = problemLines(run.report, run.failures, messages)
+  const hint = run.failures.length > 0 ? nodeFailureHint(messages, deps.node) : null
+  if (hint) problems.push(hint)
   if (problems.length > 0) prompts.warn(problems.join('\n'))
 
   const agents = run.agents?.map((id) => (id === UNIVERSAL_AGENT

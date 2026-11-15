@@ -152,6 +152,7 @@ export function makeDeps(parts) {
     env: parts.env ?? { XDG_STATE_HOME: mkdtempSync(join(tmpdir(), 'bmad-state-')) },
     cwd: parts.cwd ?? '/project',
     version: '6.13.0-next.0',
+    node: '24.0.0',
     terminal: () => true,
     agent: async () => null,
   })

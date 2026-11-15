@@ -26,6 +26,16 @@ export function nodeVersionState(version = process.versions.node) {
 }
 
 /**
+ * Said only when something failed: a Node below the skills CLI's floor usually still works.
+ * @param {Record<string, any>} messages
+ * @param {string} [version]
+ * @returns {string | null}
+ */
+export function nodeFailureHint(messages, version = process.versions.node) {
+  return nodeVersionState(version) === 'warn' ? message(messages, 'nodeBelowSkillsFloor', { version }) : null
+}
+
+/**
  * @param {{ platform: string, env: NodeJS.ProcessEnv, cwd: string, execPath: string }} [input]
  * @returns {boolean}
  */
@@ -81,7 +91,7 @@ export function uvInstallCommand(messages, platform = process.platform) {
 
 /**
  * `terminal` and `agent` are injectable so the command tests can drive the interactive path.
- * @param {{ interactive: boolean, runner: Runner, messages: Record<string, any>, warn: (text: string) => void, platform?: string, terminal?: () => boolean, agent?: () => Promise<string | null> }} options
+ * @param {{ interactive: boolean, runner: Runner, messages: Record<string, any>, platform?: string, terminal?: () => boolean, agent?: () => Promise<string | null> }} options
  * @returns {Promise<void>}
  */
 export async function runPreflight(options) {
@@ -89,7 +99,6 @@ export async function runPreflight(options) {
     interactive,
     runner,
     messages,
-    warn,
     platform = process.platform,
     terminal = hasTerminal,
     agent: readAgent = insideAgent,
@@ -97,7 +106,6 @@ export async function runPreflight(options) {
   const version = process.versions.node
   const state = nodeVersionState(version)
   if (state === 'too-old') throw new PreflightError(message(messages, 'nodeTooOld', { version }))
-  if (state === 'warn') warn(message(messages, 'nodeBelowSkillsFloor', { version }))
 
   const wsl = wslRunningWindowsNode({ platform, env: process.env, cwd: process.cwd(), execPath: process.execPath })
   if (wsl) throw new PreflightError(message(messages, 'wslWindowsNode'))
