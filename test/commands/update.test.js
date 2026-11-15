@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { update } from '../../src/commands/update.js'
 import {
@@ -81,17 +82,25 @@ test('a failed module is reported and exits 1', async () => {
   assert.ok(said.notes.some((note) => note.startsWith(messages.summaryTitleUpdatedProblems)))
 })
 
-test('a module this installer does not know is named, not updated', async () => {
+test('a module not on the list is re-added from the source its record came from, its own skills named', async (t) => {
+  const dir = await tempDir(t)
   const report = statusOf()
-  report.modules.push({ ...report.modules[1], module: 'acme' })
+  report.modules.push({ ...report.modules[1], module: 'widgets', folder: 'bmod-widgets', skills: ['acme-widget'], absent_skills: ['acme-gadget'] })
+  report.modules.push({ ...report.modules[1], module: 'loose', folder: 'bmod-loose', skills: [], absent_skills: [] })
+  await writeFile(join(dir, 'skills-lock.json'), JSON.stringify({
+    version: 1,
+    skills: { 'bmod-widgets': { source: 'acme/mods', sourceType: 'github', ref: 'dev', skillPath: 'skills/widgets/bmod-widgets/SKILL.md' } },
+  }))
   const { prompts, said } = fakePrompts()
   const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad')]] })
   const { scripts } = fakeBmadScripts({ statuses: [report, report] })
 
-  await update(updateOptions(), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts }))
+  await update(updateOptions({ directory: dir }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }))
 
-  assert.equal(only(requests).length, 2)
-  assert.ok(said.says.includes(messages.updateNotListed.replace('{modules}', 'acme')))
+  assert.deepEqual(only(requests).at(-1)?.source, 'acme/mods/skills/widgets#dev')
+  assert.deepEqual(only(requests).at(-1)?.skills, ['bmod-widgets', 'acme-widget', 'acme-gadget'])
+  assert.equal(only(requests).length, 3)
+  assert.ok(said.says.includes(messages.updateNotListed.replace('{modules}', 'loose')))
 })
 
 test('migrations compare the versions before and after the update', async () => {

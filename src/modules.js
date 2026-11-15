@@ -1,9 +1,10 @@
 import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { homedir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { parse } from 'yaml'
 import { packageRoot } from './version.js'
 
-/** @typedef {{ code: string, name: string, description: string, source: string, record: string, aliases?: string[], always?: boolean, default?: boolean, deprecated?: string }} ModuleDefinition */
+/** @typedef {{ code: string, name: string, description: string, source: string, record: string, aliases?: string[], always?: boolean, default?: boolean, deprecated?: string, custom?: boolean }} ModuleDefinition */
 
 const SOURCE_PATTERN = /^[\w.-]+\/[\w.-]+(\/[\w.-]+)*$/
 const SOURCE_OVERRIDE = 'BMAD_INSTALLER_SOURCE_OVERRIDE'
@@ -128,6 +129,28 @@ export function findModule(modules, codeOrAlias) {
 }
 
 /**
+ * A module code never holds a slash; anything that does is a source the skills CLI can install
+ * from: `owner/repo/folder#ref`, a git URL or a local path.
+ * @param {string} token
+ */
+export function isModuleSource(token) {
+  return token.includes('/') || token.includes('\\') || token === '.' || token === '~'
+}
+
+/**
+ * A local path is made absolute against the shell's folder, since the skills CLI runs in the project.
+ * @param {string} source
+ * @param {string} [cwd]
+ * @returns {string}
+ */
+export function normalizeSource(source, cwd = process.cwd()) {
+  if (source === '~' || source.startsWith('~/')) return join(homedir(), source.slice(1))
+  if (source === '.' || source.startsWith('./') || source.startsWith('../')) return resolve(cwd, source)
+  return source
+}
+
+/**
+ * Module codes and aliases from modules.yaml, and sources for modules not in it.
  * @param {string} value
  * @param {ModuleDefinition[]} modules
  * @returns {string[]}
@@ -138,11 +161,20 @@ export function parseModulesFlag(value, modules) {
   for (const token of value.split(',')) {
     const codeOrAlias = token.trim()
     if (codeOrAlias === '') continue
-    const module = findModule(modules, codeOrAlias)
-    if (!module) throw new UnknownModuleError(codeOrAlias, modules)
-    if (!codes.includes(module.code)) codes.push(module.code)
+    const code = isModuleSource(codeOrAlias) ? normalizeSource(codeOrAlias) : findModule(modules, codeOrAlias)?.code
+    if (!code) throw new UnknownModuleError(codeOrAlias, modules)
+    if (!codes.includes(code)) codes.push(code)
   }
   return codes
+}
+
+/**
+ * A module from outside modules.yaml, named by where it comes from.
+ * @param {string} source
+ * @returns {ModuleDefinition}
+ */
+export function customModule(source) {
+  return { code: source, name: source, description: '', source, record: '', custom: true }
 }
 
 /**

@@ -76,3 +76,12 @@ test('repeatCommand names the picked modules and the agents', () => {
   assert.equal(repeatCommand(chosenModules(['method', 'cis'], modules), ['universal', 'claude-code']), 'npx bmad-method install -m method,cis -t universal,claude-code -y')
   assert.equal(repeatCommand(chosenModules([], modules), ['universal']), 'npx bmad-method install -m core-tools -t universal -y')
 })
+
+test('a folder from --modules becomes a custom module after the listed ones, installed whole', async () => {
+  const modules = await loadModules()
+  const chosen = chosenModules(['acme/mods/skills/widgets', 'method'], modules)
+  assert.deepEqual(chosen.map((module) => module.code), ['core-tools', 'method', 'acme/mods/skills/widgets'])
+  assert.equal(chosen[2].custom, true)
+  assert.deepEqual(moduleCalls(chosen, null).at(-1), { source: 'acme/mods/skills/widgets', skills: ['*'], label: 'acme/mods/skills/widgets' })
+  assert.equal(repeatCommand(chosen, ['claude-code']), 'npx bmad-method install -m method,acme/mods/skills/widgets -t claude-code -y')
+})

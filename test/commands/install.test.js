@@ -186,3 +186,22 @@ test('unticking an installed module keeps it and says so', async (t) => {
   assert.ok(said.warns.includes(messages.modulesKept.replace('{modules}', 'BMad Method')), said.warns.join('\n'))
   assert.deepEqual(only(requests).map((request) => request.source), ['bmad-code-org/BMAD-METHOD/skills/founder'])
 })
+
+test('--modules with a folder installs that module whole next to the listed ones', async (t) => {
+  const dir = await tempDir(t)
+  const { prompts } = fakePrompts()
+  const { cli, requests } = fakeSkillsCli({ lists: [[], RECORDS.map(listed)] })
+  const { scripts } = fakeBmadScripts({ statuses: [statusOf(), statusOf()] })
+
+  const code = await install(
+    options({ directory: dir, yes: true, modules: 'method,acme/mods/skills/widgets' }),
+    makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }),
+  )
+
+  assert.equal(code, 0)
+  assert.deepEqual(only(requests).map((request) => [request.source, request.skills]), [
+    ['bmad-code-org/BMAD-METHOD/skills/core-tools', ['*']],
+    ['bmad-code-org/BMAD-METHOD/skills/method', ['*']],
+    ['acme/mods/skills/widgets', ['*']],
+  ])
+})

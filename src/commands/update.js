@@ -4,6 +4,7 @@ import { BMAD_SKILL, inspectInstall, installedModuleCodes } from '../installed.j
 import { message } from '../messages.js'
 import { findModule } from '../modules.js'
 import { runPreflight } from '../preflight.js'
+import { moduleSourceFromLock, readProjectLock } from '../project-lock.js'
 import { renderMigrations } from '../report.js'
 import { showEnding } from './ending.js'
 import { add } from './install-steps.js'
@@ -12,11 +13,13 @@ import { selectMigrations, versionsByCode } from './install-plan.js'
 /** @typedef {import('../bmad-scripts.js').StatusReport} StatusReport */
 /** @typedef {import('../cli.js').CliOptions} CliOptions */
 /** @typedef {import('../skills-cli.js').AddResult} AddResult */
+/** @typedef {import('./install-plan.js').InstallCall} InstallCall */
 /** @typedef {import('./install.js').CommandDeps} CommandDeps */
 
 /**
- * Re-adds every installed module this installer knows, one `skills add <folder> -s '*'` each, to
- * the agents already holding BMad here. `npx skills update` re-adds one skill at a time, a fresh
+ * Re-adds every installed module, one `skills add` each, to the agents already holding BMad here:
+ * a module in modules.yaml from its folder with `-s '*'`, any other from the source and ref the
+ * project lock recorded for its record, with its own skills named. `npx skills update` re-adds one skill at a time, a fresh
  * clone each, and picks agents from the folders in the project.
  * `checked` is set when install already ran the preflight checks and hands over to update.
  * @param {CliOptions} options
@@ -50,10 +53,18 @@ export async function update(options, deps, context = {}) {
     wasInstalled = await bmadScripts.status(bmadSkillDir, directory).catch(() => null)
     const codes = wasInstalled ? wasInstalled.modules.map((entry) => entry.module) : installedModuleCodes(before, modules)
     const known = modules.filter((module) => module.always || codes.some((code) => findModule(modules, code) === module))
-    unknown = codes.filter((code) => !findModule(modules, code))
-    for (const module of known) {
-      progress.update(message(messages, 'updatingSpinner', { what: module.name }))
-      failures.push(...(await add({ source: module.source, skills: ['*'], label: module.name }, agents, directory, deps)))
+    /** @type {InstallCall[]} */
+    const calls = known.map((module) => ({ source: module.source, skills: ['*'], label: module.name }))
+    const lock = await readProjectLock(directory)
+    for (const entry of wasInstalled?.modules ?? []) {
+      if (findModule(modules, entry.module)) continue
+      const source = moduleSourceFromLock(lock[entry.folder], directory)
+      if (!source) unknown.push(entry.module)
+      else calls.push({ source, skills: [...new Set([entry.folder, ...entry.skills, ...entry.absent_skills])], label: entry.module })
+    }
+    for (const call of calls) {
+      progress.update(message(messages, 'updatingSpinner', { what: call.label }))
+      failures.push(...(await add(call, agents, directory, deps)))
     }
     bmadSkillDir = (await inspectInstall(directory, skillsCli)).bmadSkillDir ?? bmadSkillDir
     progress.update(message(messages, 'statusSpinner'))

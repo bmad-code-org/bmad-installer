@@ -9,7 +9,10 @@ import {
   findModule,
   parseModulesFlag,
   defaultCodes,
+  isModuleSource,
+  normalizeSource,
 } from '../src/modules.js'
+import { homedir } from 'node:os'
 
 /** @type {string[]} */
 const tempDirs = []
@@ -90,4 +93,20 @@ modules:
 test('defaultCodes takes the default modules', async () => {
   assert.deepEqual(defaultCodes(await loadModules()), ['method', 'toolsmith'])
   assert.deepEqual(defaultCodes(await loadModules(await writeModulesFile(ONE_DEFAULT_MODULE))), ['two'])
+})
+
+test('parseModulesFlag takes a folder for a module not on the list', async () => {
+  const modules = await loadModules()
+  assert.deepEqual(parseModulesFlag('method,acme/mods/skills/widgets#dev', modules), ['method', 'acme/mods/skills/widgets#dev'])
+  assert.deepEqual(parseModulesFlag('https://git.example.com/acme/mods.git', modules), ['https://git.example.com/acme/mods.git'])
+  assert.deepEqual(parseModulesFlag('./widgets', modules), [join(process.cwd(), 'widgets')])
+})
+
+test('isModuleSource and normalizeSource tell a source from a code and make local paths absolute', () => {
+  assert.equal(isModuleSource('method'), false)
+  assert.equal(isModuleSource('acme/mods'), true)
+  assert.equal(isModuleSource('C:\\mods\\widgets'), true)
+  assert.equal(normalizeSource('../widgets', '/work/app'), '/work/widgets')
+  assert.equal(normalizeSource('~/mods/widgets', '/work/app'), join(homedir(), 'mods', 'widgets'))
+  assert.equal(normalizeSource('acme/mods/skills/widgets', '/work/app'), 'acme/mods/skills/widgets')
 })

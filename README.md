@@ -52,7 +52,7 @@ The skills CLI decides. With one agent it copies the skills into that agent's fo
 | Flag | What it does |
 | --- | --- |
 | `-d, --directory <path>` | Project directory, default the current one |
-| `-m, --modules <codes>` | Comma-separated module codes to install, e.g. `method,cis` |
+| `-m, --modules <codes>` | Comma-separated module codes or module folders to install, e.g. `method,cis` or `method,acme/our-modules/skills/widgets` |
 | `-t, --tools <ids>` | Comma-separated coding agent ids to install to |
 | `--list-tools` | List the coding agent ids `--tools` takes |
 | `-y, --yes` | Take the defaults and ask nothing |
@@ -65,6 +65,10 @@ The skills CLI decides. With one agent it copies the skills into that agent's fo
 
 `--modules` takes module codes: `method` (alias `bmm`), `toolsmith`, `founder` and `cis`. Without `--modules`, `--yes` installs `method` and `toolsmith`. The core tools module installs on every run. Each module installs whole, with one `npx skills add <owner/repo/folder> -s '*'` for its folder; a module already installed with nothing missing is skipped.
 
+### Your own modules
+
+`--modules` also takes the folder of a module that is not on the list: anything with a `/` is a source the skills CLI can install from, such as `acme/our-modules/skills/widgets`, `acme/our-modules/skills/widgets#dev`, a git URL or a local path (`./widgets`, made absolute against the folder you run from). It installs whole, like the listed modules, to the agents you pick: `npx bmad-method install -m method,acme/our-modules/skills/widgets`. The folder must hold the module's record and its skills; the `bmad` skill reads the record on its next `bmad setup`. `update` re-adds it from the source and ref the project's `skills-lock.json` recorded for its record, so a module installed with `npx skills add` updates the same way.
+
 A 6.12 flag this installer dropped prints one line about it, then exits without installing.
 
 ## What the summary tells you
@@ -75,7 +79,7 @@ The summary names the project, the modules with their version and the coding age
 
 Three routes: ask the `bmad` skill, run `npx bmad-method update`, or run `npx skills update`.
 
-`npx bmad-method update` re-adds each installed module whole, one `npx skills add <owner/repo/folder> -s '*'` per module, to the agents whose folder in the project already holds BMad. It then prints the summary and any migrations for the version jump. It updates only the modules this installer knows and names any others; `npx skills update` covers those, one skill and one clone at a time, so it is much slower. A module re-added this way gets back any skill removed from it by hand.
+`npx bmad-method update` re-adds each installed module whole, one `npx skills add <owner/repo/folder> -s '*'` per module, to the agents whose folder in the project already holds BMad. It then prints the summary and any migrations for the version jump. A module that is not on the list, installed with `--modules <folder>` or `npx skills add`, is re-added from the source and ref the project's `skills-lock.json` recorded for its record. One it cannot place, such as a well-known skill, is named; `npx skills update` covers it, one skill and one clone at a time. A module re-added this way gets back any skill removed from it by hand.
 
 After adding or updating any skill by any route, ask the `bmad` skill to update. Only it reconciles what is installed.
 
@@ -85,7 +89,7 @@ After adding or updating any skill by any route, ask the `bmad` skill to update.
 
 ## Installing with the skills CLI directly
 
-If you install with the skills CLI directly, install a module from its folder: `npx skills add bmad-code-org/BMAD-METHOD/skills/method --skill '*'` installs BMad Method, record included. Core tools (`skills/core-tools`) hold the `bmad` skill, so install them first. A module is its record skill plus the skills that record lists. The record is a `bmod-<code>` skill, or, for a module of one skill, that skill itself. A record without its skills, or skills without their record, is a partial install: the `bmad` skill cannot see or run it. `npx bmad-method status` lists missing records and unmet requirements.
+If you install with the skills CLI directly, ours or your own, install a module from its folder: `npx skills add bmad-code-org/BMAD-METHOD/skills/method --skill '*'` installs BMad Method, record included. Core tools (`skills/core-tools`) hold the `bmad` skill, so install them first. A module is its record skill plus the skills that record lists. The record is a `bmod-<code>` skill, or, for a module of one skill, that skill itself. A record without its skills, or skills without their record, is a partial install: the `bmad` skill cannot see or run it. `npx bmad-method status` lists missing records and unmet requirements.
 
 ## Troubleshooting
 

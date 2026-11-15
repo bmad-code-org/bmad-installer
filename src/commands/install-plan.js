@@ -1,3 +1,4 @@
+import { customModule, isModuleSource } from '../modules.js'
 import { versionMajor } from '../report.js'
 
 /** @typedef {import('../bmad-scripts.js').Migration} Migration */
@@ -9,13 +10,14 @@ const ALL_SKILLS = '*'
 
 /**
  * Resolves the picked codes in modules.yaml order and adds the `always` modules, which neither
- * the flag nor the prompt ever contributes.
+ * the flag nor the prompt ever contributes. Sources from `--modules` follow, in the order given.
  * @param {string[]} codes
  * @param {ModuleDefinition[]} modules
  * @returns {ModuleDefinition[]}
  */
 export function chosenModules(codes, modules) {
-  return modules.filter((module) => module.always || codes.includes(module.code))
+  const listed = modules.filter((module) => module.always || codes.includes(module.code))
+  return [...listed, ...codes.filter(isModuleSource).map(customModule)]
 }
 
 /**
