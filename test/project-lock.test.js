@@ -2,14 +2,15 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { lockedRef, moduleSourceFromLock, readProjectLock } from '../src/project-lock.js'
 
 test('moduleSourceFromLock gives the folder above the record, on its source and ref', () => {
   const github = { source: 'acme/mods', sourceType: 'github', ref: 'dev', skillPath: 'skills/widgets/bmod-widgets/SKILL.md' }
   assert.equal(moduleSourceFromLock(github, '/work/app'), 'acme/mods/skills/widgets#dev')
   assert.equal(moduleSourceFromLock({ ...github, ref: undefined, skillPath: 'bmod-widgets/SKILL.md' }, '/work/app'), 'acme/mods')
-  assert.equal(moduleSourceFromLock({ source: '../mods', sourceType: 'local', skillPath: 'widgets/bmod-widgets/SKILL.md' }, '/work/app'), '/work/mods/widgets')
+  assert.equal(moduleSourceFromLock({ source: '../mods', sourceType: 'local', skillPath: 'widgets/bmod-widgets/SKILL.md' }, '/work/app'), join(resolve('/work/app', '../mods'), 'widgets'))
+  assert.equal(moduleSourceFromLock({ source: '../mods/widgets', sourceType: 'local' }, '/work/app'), resolve('/work/app', '../mods/widgets'))
   assert.equal(
     moduleSourceFromLock({ source: 'acme/mods', sourceUrl: 'https://git.example.com/acme/mods.git', sourceType: 'git', ref: 'v2', skillPath: 'skills/widgets/bmod-widgets/SKILL.md' }, '/work/app'),
     'https://git.example.com/acme/mods.git#v2',

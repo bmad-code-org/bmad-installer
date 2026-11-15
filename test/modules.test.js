@@ -2,7 +2,7 @@ import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import {
   ModulesError,
   loadModules,
@@ -107,8 +107,11 @@ test('isModuleSource and normalizeSource tell a source from a code and make loca
   assert.equal(isModuleSource('method'), false)
   assert.equal(isModuleSource('acme/mods'), true)
   assert.equal(isModuleSource('C:\\mods\\widgets'), true)
-  assert.equal(normalizeSource('../widgets', '/work/app'), '/work/widgets')
+  assert.equal(normalizeSource('../widgets', '/work/app'), resolve('/work/app', '../widgets'))
+  assert.equal(normalizeSource('..\\widgets', '/work/app'), resolve('/work/app', '..\\widgets'), 'a Windows relative path is made absolute too')
+  assert.equal(normalizeSource('.', '/work/app'), resolve('/work/app'))
   assert.equal(normalizeSource('~/mods/widgets', '/work/app'), join(homedir(), 'mods', 'widgets'))
+  assert.equal(normalizeSource('.hidden-code', '/work/app'), '.hidden-code')
   assert.equal(normalizeSource('acme/mods/skills/widgets', '/work/app'), 'acme/mods/skills/widgets')
 })
 

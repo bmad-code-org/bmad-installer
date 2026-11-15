@@ -155,8 +155,8 @@ export function isModuleSource(token) {
  * @returns {string}
  */
 export function normalizeSource(source, cwd = process.cwd()) {
-  if (source === '~' || source.startsWith('~/')) return join(homedir(), source.slice(1))
-  if (source === '.' || source.startsWith('./') || source.startsWith('../')) return resolve(cwd, source)
+  if (/^~([\\/]|$)/.test(source)) return join(homedir(), source.slice(1))
+  if (/^\.{1,2}([\\/]|$)/.test(source)) return resolve(cwd, source)
   return source
 }
 

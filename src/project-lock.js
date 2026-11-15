@@ -33,11 +33,10 @@ export function moduleSourceFromLock(entry, directory) {
   if (!source) return null
   const bareShorthand = !source.includes(':') && !/^[./]/.test(source)
   if ((entry.sourceType === 'git' || entry.sourceType === 'gitlab') && bareShorthand) return null
-  if (entry.sourceType === 'local' && !isAbsolute(source)) source = resolve(directory, source)
   const skillFolder = (entry.skillPath ?? '').replace(/\/?SKILL\.md$/, '')
   const folder = skillFolder ? posix.dirname(skillFolder) : '.'
-  const appendable = github || entry.sourceType === 'local'
-  const withFolder = appendable && folder !== '.' ? `${source.replace(/\/+$/, '')}/${folder}` : source
+  if (entry.sourceType === 'local') return join(isAbsolute(source) ? source : resolve(directory, source), ...folder.split('/'))
+  const withFolder = github && folder !== '.' ? `${source.replace(/\/+$/, '')}/${folder}` : source
   return entry.ref ? `${withFolder}#${entry.ref}` : withFolder
 }
 
