@@ -4,6 +4,7 @@ import { customModule, isModuleSource, sourceAtRef } from '../modules.js'
 /** @typedef {import('../bmad-scripts.js').StatusReport} StatusReport */
 /** @typedef {import('../modules.js').ModuleDefinition} ModuleDefinition */
 /** @typedef {{ source: string, skills: string[], label: string }} InstallCall */
+/** @typedef {{ module: string, replaced: string, skills: string[] }} ReplacedInstall */
 
 const ALL_SKILLS = '*'
 
@@ -71,6 +72,23 @@ export function moduleCalls(chosen, installed, heldByEveryAgent = () => true) {
       return module.ref || !entry || entry.absent_skills.length > 0 || !heldByEveryAgent(module.record)
     })
     .map((module) => ({ source: module.source, skills: [ALL_SKILLS], label: module.name }))
+}
+
+/**
+ * The retired modules still installed that one of `chosen` replaces, each with the skills that
+ * `npx skills remove` takes to remove it: from the status report, or just its record without one.
+ * @param {ModuleDefinition[]} chosen
+ * @param {string[]} installedCodes
+ * @param {StatusReport | null} report
+ * @returns {ReplacedInstall[]}
+ */
+export function replacedInstalls(chosen, installedCodes, report) {
+  return chosen.flatMap((module) => (module.replaces ?? [])
+    .filter((old) => installedCodes.includes(old.code))
+    .map((old) => {
+      const entry = report?.modules.find((installed) => installed.module === old.code)
+      return { module: module.name, replaced: old.name, skills: entry ? [...new Set([entry.folder, ...entry.skills])] : [old.record] }
+    }))
 }
 
 /**

@@ -8,6 +8,7 @@ import { distTag, newerVersion } from '../self-update.js'
 /** @typedef {import('../cli.js').CliOptions} CliOptions */
 /** @typedef {import('./deps.js').CommandDeps} CommandDeps */
 /** @typedef {import('./existing-install.js').Existing} Existing */
+/** @typedef {import('./install-plan.js').ReplacedInstall} ReplacedInstall */
 
 /** @param {string} path */
 async function isDirectory(path) {
@@ -63,4 +64,15 @@ export async function pickModuleCodes(options, deps, existing) {
     installedCodes: existing.codes,
     installedVersions: existing.versions,
   })
+}
+
+/**
+ * Says, for each retired module still installed, which module replaces it and how to remove it.
+ * @param {CommandDeps} deps
+ * @param {ReplacedInstall[]} replaced
+ */
+export function warnReplaced(deps, replaced) {
+  for (const entry of replaced) {
+    deps.prompts.warn(message(deps.messages, 'replacedModule', { ...entry, skills: entry.skills.join(' ') }))
+  }
 }

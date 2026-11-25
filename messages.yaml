@@ -91,6 +91,10 @@ modulesKept: |-
   Still installed: {modules}. This installer never removes anything.
   To remove a module, run npx skills remove with its skills.
 
+replacedModule: |-
+  {module} replaces {replaced}, which is still installed. This installer never removes anything.
+  To remove it: npx skills remove {skills}
+
 agentsPrompt: "Which coding agents should get the skills?"
 
 agentsPlaceholder: "Type to filter"

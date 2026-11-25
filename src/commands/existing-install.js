@@ -1,6 +1,6 @@
 import { inspectInstall, installedModuleCodes } from '../installed.js'
 import { message } from '../messages.js'
-import { findModule } from '../modules.js'
+import { moduleName } from '../modules.js'
 import { installedLabel } from '../report.js'
 import { versionsByCode } from './install-plan.js'
 
@@ -41,7 +41,7 @@ export async function readExisting(directory, deps) {
 
   if (state.legacyManifest) prompts.say(message(messages, 'legacyManifest'))
   if (codes.length > 0) {
-    const names = codes.map((code) => installedLabel(messages, findModule(modules, code)?.name ?? code, versions[code]))
+    const names = codes.map((code) => installedLabel(messages, moduleName(modules, code) ?? code, versions[code]))
     prompts.say([message(messages, 'foundModules'), ...names].join('\n'))
   }
   return { state, report, codes, versions }

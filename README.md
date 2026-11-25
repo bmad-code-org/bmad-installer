@@ -28,7 +28,7 @@ It asks where to install, which modules you want and which coding agents get the
 Headless, for scripts and CI:
 
 ```
-npx bmad-method install -d ./my-app -m method,cis -t claude-code,codex -y
+npx bmad-method install -d ./my-app -m method,creative -t claude-code,codex -y
 ```
 
 ## Where it can run
@@ -52,7 +52,7 @@ The skills CLI decides. With one agent it copies the skills into that agent's fo
 | Flag | What it does |
 | --- | --- |
 | `-d, --directory <path>` | Project directory, default the current one |
-| `-m, --modules <codes>` | Comma-separated module codes or module folders to install, e.g. `method,cis` or `method,acme/our-modules/skills/widgets` |
+| `-m, --modules <codes>` | Comma-separated module codes or module folders to install, e.g. `method,creative` or `method,acme/our-modules/skills/widgets` |
 | `-t, --tools <ids>` | Comma-separated coding agent ids to install to |
 | `--list-tools` | List the coding agent ids `--tools` takes |
 | `-y, --yes` | Take the defaults and ask nothing |
@@ -63,7 +63,7 @@ The skills CLI decides. With one agent it copies the skills into that agent's fo
 | `-h, --help` | Show the help |
 | `-v, --version` | Show the version |
 
-`--modules` takes module codes: `method` (alias `bmm`), `toolsmith`, `founder`, `tea`, `bmad-loop` (alias `loop`) and `cis`. Without `--modules`, `--yes` installs `method` and `toolsmith`. The core tools module installs on every run. A module that needs another brings it along: `bmad-loop` installs `method` too. Each module installs whole, with one `npx skills add <owner/repo/folder> -s '*'` for its folder; a module already installed with nothing missing is skipped.
+`--modules` takes module codes: `method` (alias `bmm`), `toolsmith`, `founder`, `tea`, `bmad-loop` (alias `loop`) and `creative`. Without `--modules`, `--yes` installs `method` and `toolsmith`. The core tools module installs on every run. A module that needs another brings it along: `bmad-loop` installs `method` too. `creative` replaces the Creative Intelligence Suite, and `cis` still works as its code. In a project that holds the old suite, the module picker ticks `creative` and `update` installs it in the suite's place. The old skills stay until you remove them; the run prints the `npx skills remove` command that does it. Each module installs whole, with one `npx skills add <owner/repo/folder> -s '*'` for its folder; a module already installed with nothing missing is skipped.
 
 ### A branch or tag
 

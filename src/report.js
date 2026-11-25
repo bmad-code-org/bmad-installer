@@ -1,6 +1,6 @@
 import { SETUP_NEXT } from './bmad-scripts.js'
 import { message } from './messages.js'
-import { findModule } from './modules.js'
+import { moduleName } from './modules.js'
 
 /** @typedef {import('./bmad-scripts.js').StatusReport} StatusReport */
 /** @typedef {import('./bmad-scripts.js').Migration} Migration */
@@ -26,7 +26,7 @@ export function renderStatus(report, options) {
   for (const module of report.modules) {
     lines.push(
       message(messages, 'reportModule', {
-        name: moduleName(modules, module.module),
+        name: moduleName(modules, module.module) ?? module.module,
         version: module.version,
         count: module.skills.length,
       }),
@@ -124,7 +124,7 @@ export function renderSummary(report, options) {
   const byVersion = new Map()
   for (const entry of report.modules) {
     // The summary sits under "BMad is installed", so the brand prefix would only push the line past the box width.
-    const name = moduleName(modules, entry.module).replace(/^BMad /, '')
+    const name = (moduleName(modules, entry.module) ?? entry.module).replace(/^BMad /, '')
     byVersion.set(entry.version, [...(byVersion.get(entry.version) ?? []), name])
   }
   const installed = [...byVersion]
@@ -157,11 +157,3 @@ export function installedLabel(messages, name, version) {
   return `${name} ${suffix}`
 }
 
-/**
- * @param {ModuleDefinition[]} modules
- * @param {string} code
- * @returns {string}
- */
-function moduleName(modules, code) {
-  return findModule(modules, code)?.name ?? code
-}

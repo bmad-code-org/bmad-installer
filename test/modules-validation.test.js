@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ModulesError, findModule, loadModules, overrideSource } from '../src/modules.js'
+import { ModulesError, findModule, loadModules, moduleName, overrideSource } from '../src/modules.js'
 
 const SOURCE_OVERRIDE = 'BMAD_INSTALLER_SOURCE_OVERRIDE'
 
@@ -93,7 +93,8 @@ test('the source override swaps the repository of the core modules and keeps the
     const sources = Object.fromEntries((await loadModules()).map((module) => [module.code, module.source]))
     assert.equal(sources['core-tools'], '/tmp/local-checkout/skills/core-tools')
     assert.equal(sources.founder, '/tmp/local-checkout/skills/founder')
-    assert.equal(sources.cis, 'bmad-code-org/bmad-module-creative-intelligence-suite')
+    assert.equal(sources.creative, '/tmp/local-checkout/skills/creative')
+    assert.equal(sources.tea, 'bmad-code-org/bmad-method-test-architecture-enterprise/skills')
     await assertInvalid(
       'modules:\n  - code: one\n    name: One\n    description: d\n    source: nope\n    record: r\n',
       'owner/repo',
@@ -109,4 +110,32 @@ test('overrideSource puts a ref after the folder and leaves other repositories a
   assert.equal(overrideSource('o/r/skills/method', 'o/r#dev', repo), 'o/r/skills/method#dev')
   assert.equal(overrideSource('o/r', '/local/', repo), '/local')
   assert.equal(overrideSource('x/y/skills/a', '/local', repo), 'x/y/skills/a')
+})
+
+const REPLACING = `${VALID}
+  - code: three
+    name: Three
+    description: d
+    source: o/r
+    record: r
+    replaces:
+      - code: old
+        name: Old Module
+        record: bmod-old
+`
+
+test('a replaced code finds the module that replaces it and keeps its own name', async () => {
+  const modules = await loadModules(await writeModulesFile(REPLACING))
+  assert.equal(findModule(modules, 'old')?.code, 'three')
+  assert.deepEqual(findModule(modules, 'three')?.replaces, [{ code: 'old', name: 'Old Module', record: 'bmod-old' }])
+  assert.equal(moduleName(modules, 'old'), 'Old Module')
+  assert.equal(moduleName(modules, 'dos'), 'Two')
+  assert.equal(moduleName(modules, 'three'), 'Three')
+  assert.equal(moduleName(modules, 'nope'), undefined)
+})
+
+test('validation rejects a malformed or clashing replaces list', async () => {
+  await assertInvalid(`${VALID}\n  - code: three\n    name: Three\n    description: d\n    source: o/r\n    record: r\n    replaces: old\n`, 'list of modules')
+  await assertInvalid(`${VALID}\n  - code: three\n    name: Three\n    description: d\n    source: o/r\n    record: r\n    replaces:\n      - code: old\n        name: Old\n`, 'replaces record')
+  await assertInvalid(`${VALID}\n  - code: three\n    name: Three\n    description: d\n    source: o/r\n    record: r\n    replaces:\n      - code: dos\n        name: Old\n        record: bmod-old\n`, 'already used')
 })

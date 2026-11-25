@@ -306,3 +306,22 @@ test('a module complete for one agent is still added for a newly picked agent', 
   )
   assert.deepEqual(only(again.requests), [], 'the same agent again adds nothing')
 })
+
+test('picking Creative over an installed CIS installs Creative and says how to remove CIS', async (t) => {
+  const dir = await tempDir(t)
+  const { prompts, said } = fakePrompts({ modules: ['creative'] })
+  const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad'), listed('bmod-core-tools'), listed('bmod-cis')], RECORDS.map(listed)] })
+  const installed = statusOf()
+  installed.modules.forEach((entry) => { entry.absent_skills = [] })
+  installed.modules.push({ ...installed.modules[1], module: 'cis', folder: 'bmod-cis', skills: ['bmad-cis-storytelling'], absent_skills: [] })
+  const { scripts } = fakeBmadScripts({ statuses: [installed, installed, installed] })
+
+  await install(options({ directory: dir }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir, detect: heldBy(dir, '.claude/skills') }))
+
+  assert.deepEqual(only(requests).map((request) => request.source), ['bmad-code-org/BMAD-METHOD/skills/creative'])
+  const warning = messages.replacedModule
+    .replace('{module}', 'BMad Creative')
+    .replace('{replaced}', 'BMad Creative Intelligence Suite')
+    .replace('{skills}', 'bmod-cis bmad-cis-storytelling')
+  assert.ok(said.warns.includes(warning), said.warns.join('\n'))
+})
