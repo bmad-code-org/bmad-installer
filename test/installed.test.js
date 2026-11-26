@@ -85,9 +85,8 @@ test('installedModuleCodes matches installed skills against each module record',
   /** @param {string[]} names */
   const stateOf = (names) => ({ skills: names.map((name) => listed(name, `/s/${name}`)), bmadSkillDir: null, legacyManifest: false })
 
-  assert.deepEqual(installedModuleCodes(stateOf(['bmad', 'bmod-core-tools', 'bmod-cis', 'bmod-other']), modules), ['core-tools', 'cis'])
+  assert.deepEqual(installedModuleCodes(stateOf(['bmad', 'bmod-core-tools', 'bmad-creative-agent-director', 'bmod-other']), modules), ['core-tools', 'creative'])
   assert.deepEqual(installedModuleCodes(stateOf(['bmad', 'bmad-agent-pm']), modules), [])
-  assert.deepEqual(installedModuleCodes(stateOf(['bmod-cis', 'bmad-creative-agent-director']), modules), ['creative', 'cis'])
 
   const solo = [{ code: 'solo', name: 'Solo', description: 'd', source: 'o/r', record: 'bmad-solo' }]
   assert.deepEqual(installedModuleCodes(stateOf(['bmad-solo']), solo), ['solo'])

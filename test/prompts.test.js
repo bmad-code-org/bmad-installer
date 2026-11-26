@@ -70,9 +70,7 @@ test('the agent picker lists every agent by name, preselected first, then alphab
   assert.equal(picker.options[0].label, 'Augment')
 })
 
-test('a project holding a retired module has its replacement ticked, not labelled installed', () => {
+test('a project holding the old suite has Creative ticked', () => {
   const picker = modulePicker(messages, modules, { installedCodes: ['core-tools', 'cis'], installedVersions: { cis: '0.4.0' } })
   assert.deepEqual(picker.initialValues, ['creative'])
-  assert.equal(picker.options.find((option) => option.value === 'creative')?.label, must('creative').name)
-  assert.equal(picker.options.some((option) => option.value === 'cis'), false)
 })

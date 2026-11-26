@@ -49,7 +49,7 @@ Commands
 
 Flags
   -d, --directory <path>    Project directory, default the current one
-  -m, --modules <codes>     Modules to install, e.g. method,creative, method#dev or acme/repo/folder
+  -m, --modules <codes>     Modules to install, e.g. method,cis, method#dev or acme/repo/folder
   -t, --tools <ids>         Comma-separated coding agent ids to install to
       --list-tools          List the coding agent ids --tools takes
   -y, --yes                 Take the defaults and ask nothing

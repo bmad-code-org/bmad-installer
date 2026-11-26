@@ -2,7 +2,6 @@
 # `code` is the code in the module's [bmod] table, so an installed module is recognised; `aliases` are other names `--modules` takes.
 # `requires` lists the modules installed along with this one.
 # `record` is the skill holding the module's [bmod] table: a bmod-* record that lists the module's skills, or, for a module of one skill, that skill itself.
-# `replaces` lists retired modules this one took over, each with its code, name and record. A project holding one is offered this module instead, and the run prints the command that removes the old skills; `--modules` takes the old code too.
 modules:
   - code: core-tools
     name: BMad Core Tools
@@ -47,12 +46,10 @@ modules:
     record: bmod-bmad-loop
     requires: [method]
 
+  # Replaces the Creative Intelligence Suite, whose code `cis` is its alias; bmad setup offers to remove the old skills.
   - code: creative
+    aliases: [cis]
     name: BMad Creative
     description: Clio the Creative Director, for stories, talks, your voice, visuals and hard non-code problems
     source: bmad-code-org/BMAD-METHOD/skills/creative
     record: bmad-creative-agent-director
-    replaces:
-      - code: cis
-        name: BMad Creative Intelligence Suite
-        record: bmod-cis

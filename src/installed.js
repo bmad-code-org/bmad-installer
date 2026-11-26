@@ -25,19 +25,15 @@ export async function inspectInstall(dir, skillsCli) {
 }
 
 /**
- * The modules whose record skill is installed, and the retired modules they replace whose record
- * still is. A record is a `bmod-*` skill or, for a module of one skill, that skill itself, so only
- * modules.yaml can name it.
+ * The modules whose record skill is installed. A record is a `bmod-*` skill or, for a
+ * module of one skill, that skill itself, so only modules.yaml can name it.
  * @param {InstalledState} state
  * @param {ModuleDefinition[]} modules
  * @returns {string[]}
  */
 export function installedModuleCodes(state, modules) {
   const installed = new Set(state.skills.map((skill) => skill.name))
-  return [
-    ...modules.filter((module) => installed.has(module.record)).map((module) => module.code),
-    ...modules.flatMap((module) => module.replaces ?? []).filter((old) => installed.has(old.record)).map((old) => old.code),
-  ]
+  return modules.filter((module) => installed.has(module.record)).map((module) => module.code)
 }
 
 /** @param {string} path */

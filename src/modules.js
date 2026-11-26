@@ -4,8 +4,7 @@ import { join, resolve } from 'node:path'
 import { parse } from 'yaml'
 import { packageRoot } from './version.js'
 
-/** @typedef {{ code: string, name: string, record: string }} ReplacedModule */
-/** @typedef {{ code: string, name: string, description: string, source: string, record: string, aliases?: string[], always?: boolean, default?: boolean, deprecated?: string, requires?: string[], replaces?: ReplacedModule[], custom?: boolean, ref?: string }} ModuleDefinition */
+/** @typedef {{ code: string, name: string, description: string, source: string, record: string, aliases?: string[], always?: boolean, default?: boolean, deprecated?: string, requires?: string[], custom?: boolean, ref?: string }} ModuleDefinition */
 
 const SOURCE_PATTERN = /^[\w.-]+\/[\w.-]+(\/[\w.-]+)*$/
 const SOURCE_OVERRIDE = 'BMAD_INSTALLER_SOURCE_OVERRIDE'
@@ -65,15 +64,7 @@ function validateModule(entry, index, taken) {
     source,
     record: requireText(entry.record, where, 'record'),
   }
-  if (entry.replaces !== undefined) {
-    if (!Array.isArray(entry.replaces)) throw new ModulesError(`${where}: replaces must be a list of modules`)
-    module.replaces = entry.replaces.map((/** @type {any} */ old) => ({
-      code: requireText(old?.code, where, 'replaces code'),
-      name: requireText(old?.name, where, 'replaces name'),
-      record: requireText(old?.record, where, 'replaces record'),
-    }))
-  }
-  for (const claimed of [code, ...(entry.aliases ?? []), ...(module.replaces ?? []).map((old) => old.code)]) {
+  for (const claimed of [code, ...(entry.aliases ?? [])]) {
     const text = requireText(claimed, where, 'aliases')
     if (taken.has(text)) throw new ModulesError(`${where}: "${text}" is already used by another module`)
     taken.add(text)
@@ -145,21 +136,7 @@ export function overrideSource(source, override, repo) {
  * @returns {ModuleDefinition | undefined}
  */
 export function findModule(modules, codeOrAlias) {
-  return modules.find((module) => module.code === codeOrAlias
-    || (module.aliases ?? []).includes(codeOrAlias)
-    || (module.replaces ?? []).some((old) => old.code === codeOrAlias))
-}
-
-/**
- * The name of an installed module's code: its module's, or the retired module's that one replaced.
- * @param {ModuleDefinition[]} modules
- * @param {string} code
- * @returns {string | undefined}
- */
-export function moduleName(modules, code) {
-  const module = findModule(modules, code)
-  if (!module || module.code === code) return module?.name
-  return module.replaces?.find((old) => old.code === code)?.name ?? module.name
+  return modules.find((module) => module.code === codeOrAlias || (module.aliases ?? []).includes(codeOrAlias))
 }
 
 /**

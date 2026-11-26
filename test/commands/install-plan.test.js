@@ -4,7 +4,6 @@ import { readFile } from 'node:fs/promises'
 import {
   chosenModules,
   moduleCalls,
-  replacedInstalls,
   repeatCommand,
   requiredCodes,
   selectMigrations,
@@ -133,11 +132,4 @@ test('chosenModules gives a ref with a slash to the listed module', () => {
     'bmad-code-org/BMAD-METHOD/skills/core-tools',
     'bmad-code-org/BMAD-METHOD/skills/method#feature/install',
   ])
-})
-
-test('replacedInstalls names a retired module still installed and the module that replaces it', () => {
-  const creative = chosenModules(['creative'], modules)
-  assert.deepEqual(replacedInstalls(creative, ['core-tools', 'cis']), [{ module: 'BMad Creative', replaced: 'BMad Creative Intelligence Suite' }])
-  assert.deepEqual(replacedInstalls(creative, ['core-tools']), [])
-  assert.deepEqual(replacedInstalls(chosenModules(['method'], modules), ['cis']), [])
 })

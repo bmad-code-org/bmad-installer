@@ -4,7 +4,6 @@ import { customModule, isModuleSource, sourceAtRef } from '../modules.js'
 /** @typedef {import('../bmad-scripts.js').StatusReport} StatusReport */
 /** @typedef {import('../modules.js').ModuleDefinition} ModuleDefinition */
 /** @typedef {{ source: string, skills: string[], label: string }} InstallCall */
-/** @typedef {{ module: string, replaced: string }} ReplacedInstall */
 
 const ALL_SKILLS = '*'
 
@@ -72,18 +71,6 @@ export function moduleCalls(chosen, installed, heldByEveryAgent = () => true) {
       return module.ref || !entry || entry.absent_skills.length > 0 || !heldByEveryAgent(module.record)
     })
     .map((module) => ({ source: module.source, skills: [ALL_SKILLS], label: module.name }))
-}
-
-/**
- * The retired modules still installed that one of `chosen` replaces.
- * @param {ModuleDefinition[]} chosen
- * @param {string[]} installedCodes
- * @returns {ReplacedInstall[]}
- */
-export function replacedInstalls(chosen, installedCodes) {
-  return chosen.flatMap((module) => (module.replaces ?? [])
-    .filter((old) => installedCodes.includes(old.code))
-    .map((old) => ({ module: module.name, replaced: old.name })))
 }
 
 /**

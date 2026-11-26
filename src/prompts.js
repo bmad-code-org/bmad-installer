@@ -153,9 +153,7 @@ export function modulePicker(messages, modules, options) {
       hint: module.description,
     })),
     initialValues: shown
-      .filter((module) => installedCodes.includes(module.code)
-        || (module.replaces ?? []).some((old) => installedCodes.includes(old.code))
-        || (fresh && module.default))
+      .filter((module) => [module.code, ...(module.aliases ?? [])].some((code) => installedCodes.includes(code)) || (fresh && module.default))
       .map((module) => module.code),
   }
 }

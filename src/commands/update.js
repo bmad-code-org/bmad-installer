@@ -7,8 +7,7 @@ import { lockedRef, moduleSourceFromLock, readProjectLock } from '../project-loc
 import { agentsToUpdate } from './agent-choice.js'
 import { applyCalls } from './apply.js'
 import { endRun } from './ending.js'
-import { replacedInstalls, versionsByCode } from './install-plan.js'
-import { warnReplaced } from './install-steps.js'
+import { versionsByCode } from './install-plan.js'
 
 /** @typedef {import('../bmad-scripts.js').StatusReport} StatusReport */
 /** @typedef {import('../cli.js').CliOptions} CliOptions */
@@ -72,8 +71,6 @@ export async function update(options, deps, context = {}) {
   let wasInstalled = null
   /** @type {string[]} */
   let unplaced = []
-  /** @type {string[]} */
-  let codes = []
   const { failures, bmadSkillDir, report } = await applyCalls(deps, {
     directory,
     agents: agentsToUpdate(deps, directory),
@@ -81,7 +78,7 @@ export async function update(options, deps, context = {}) {
     bmadSkillDir: installedSkillDir,
     plan: async () => {
       wasInstalled = await bmadScripts.status(installedSkillDir, directory).catch(() => null)
-      codes = wasInstalled ? wasInstalled.modules.map((entry) => entry.module) : installedModuleCodes(before, modules)
+      const codes = wasInstalled ? wasInstalled.modules.map((entry) => entry.module) : installedModuleCodes(before, modules)
       const planned = await updateCalls(deps, directory, codes, wasInstalled)
       unplaced = planned.unplaced
       return planned.calls
@@ -91,7 +88,6 @@ export async function update(options, deps, context = {}) {
     prompts.fail(message(messages, 'nothingToUpdate'))
     return 1
   }
-  warnReplaced(deps, replacedInstalls(modules, codes))
   if (unplaced.length > 0) prompts.say(message(messages, 'updateNotListed', { modules: unplaced.join(', ') }))
   // Without the first status there is no telling which modules beyond modules.yaml were installed.
   if (!wasInstalled) prompts.warn(message(messages, 'updateUnreadInstall'))
