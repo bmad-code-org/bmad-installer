@@ -46,7 +46,7 @@ after(async () => {
 
 test('loads and validates the real modules.yaml', async () => {
   const modules = await loadModules()
-  assert.deepEqual(modules.map((module) => module.code), ['core-tools', 'method', 'toolsmith', 'founder', 'tea', 'bmad-loop', 'cis'])
+  assert.deepEqual(modules.map((module) => module.code), ['core-tools', 'method', 'toolsmith', 'founder', 'tea', 'bmad-loop', 'creative'])
   assert.equal(must(modules, 'core-tools').always, true)
   const method = must(modules, 'method')
   assert.deepEqual(method.aliases, ['bmm'])
@@ -58,9 +58,9 @@ test('loads and validates the real modules.yaml', async () => {
 
 test('parseModulesFlag reads comma-separated codes and aliases', async () => {
   const modules = await loadModules()
-  assert.deepEqual(parseModulesFlag('method,cis', modules), ['method', 'cis'])
-  assert.deepEqual(parseModulesFlag(' bmm , cis ', modules), ['method', 'cis'])
-  assert.deepEqual(parseModulesFlag('method,bmm,cis,', modules), ['method', 'cis'])
+  assert.deepEqual(parseModulesFlag('method,creative', modules), ['method', 'creative'])
+  assert.deepEqual(parseModulesFlag(' bmm , cis ', modules), ['method', 'creative'])
+  assert.deepEqual(parseModulesFlag('method,bmm,cis,creative,', modules), ['method', 'creative'])
   assert.deepEqual(parseModulesFlag('', modules), [])
 })
 
@@ -117,7 +117,7 @@ test('isModuleSource and normalizeSource tell a source from a code and make loca
 
 test('parseModulesFlag keeps a branch or tag on a code, with the alias resolved', async () => {
   const modules = await loadModules()
-  assert.deepEqual(parseModulesFlag('core-tools#dev, bmm#v7.0.0,cis', modules), ['core-tools#dev', 'method#v7.0.0', 'cis'])
+  assert.deepEqual(parseModulesFlag('core-tools#dev, bmm#v7.0.0,cis', modules), ['core-tools#dev', 'method#v7.0.0', 'creative'])
   assert.throws(() => parseModulesFlag('nope#dev', modules), ModulesError)
 })
 
@@ -130,6 +130,6 @@ test('a ref holding a slash stays a ref on a listed code or alias', async () => 
   const modules = await loadModules()
   assert.equal(isModuleSource('method#feature/install'), false)
   assert.equal(isModuleSource('acme/mods#feature/install'), true)
-  assert.deepEqual(parseModulesFlag('method#feature/install,cis', modules), ['method#feature/install', 'cis'])
+  assert.deepEqual(parseModulesFlag('method#feature/install,cis', modules), ['method#feature/install', 'creative'])
   assert.deepEqual(parseModulesFlag('bmm#fix/x', modules), ['method#fix/x'])
 })

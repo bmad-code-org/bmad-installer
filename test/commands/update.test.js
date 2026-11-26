@@ -166,3 +166,24 @@ test('an update that could not read the install first says so and exits 1', asyn
   assert.ok(only(requests).length > 0, 'the listed modules still update')
   assert.ok(said.warns.includes(messages.updateUnreadInstall))
 })
+
+test('an update of a project holding the old suite installs Creative in its place', async (t) => {
+  const dir = await tempDir(t)
+  const report = statusOf()
+  report.modules.push({ ...report.modules[1], module: 'cis', folder: 'bmod-cis', skills: ['bmad-cis-storytelling'], absent_skills: [] })
+  await writeFile(join(dir, 'skills-lock.json'), JSON.stringify({
+    version: 1,
+    skills: { 'bmod-cis': { source: 'bmad-code-org/bmad-module-creative-intelligence-suite', sourceType: 'github', skillPath: 'skills/bmod-cis/SKILL.md' } },
+  }))
+  const { prompts } = fakePrompts()
+  const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad')]] })
+  const { scripts } = fakeBmadScripts({ statuses: [report, report] })
+
+  await update(updateOptions({ directory: dir }), makeDeps({ prompts, skillsCli: cli, bmadScripts: scripts, cwd: dir }))
+
+  assert.deepEqual(only(requests).map((request) => request.source), [
+    'bmad-code-org/BMAD-METHOD/skills/core-tools',
+    'bmad-code-org/BMAD-METHOD/skills/method',
+    'bmad-code-org/BMAD-METHOD/skills/creative',
+  ])
+})

@@ -22,7 +22,7 @@ const fresh = { installedCodes: /** @type {string[]} */ ([]), installedVersions:
 
 test('the module picker hides the always modules', () => {
   const picker = modulePicker(messages, modules, fresh)
-  assert.deepEqual(picker.options.map((option) => option.value), ['method', 'toolsmith', 'founder', 'tea', 'bmad-loop', 'cis'])
+  assert.deepEqual(picker.options.map((option) => option.value), ['method', 'toolsmith', 'founder', 'tea', 'bmad-loop', 'creative'])
   assert.equal(picker.options.some((option) => option.value === 'core-tools'), false)
 })
 
@@ -35,13 +35,13 @@ test('a fresh install arrives with the default modules ticked', () => {
 
 test('an existing install ticks what is installed and labels its version', () => {
   const picker = modulePicker(messages, modules, {
-    installedCodes: ['core-tools', 'cis'],
-    installedVersions: { cis: '6.13.0-next' },
+    installedCodes: ['core-tools', 'founder'],
+    installedVersions: { founder: '6.13.0-next' },
   })
 
-  assert.deepEqual(picker.initialValues, ['cis'])
+  assert.deepEqual(picker.initialValues, ['founder'])
   assert.equal(picker.options[0].label, 'BMad Method')
-  assert.equal(picker.options.find((option) => option.value === 'cis')?.label, `${must('cis').name} ${messages.installedSuffix.replace('{version}', '6.13.0-next')}`)
+  assert.equal(picker.options.find((option) => option.value === 'founder')?.label, `${must('founder').name} ${messages.installedSuffix.replace('{version}', '6.13.0-next')}`)
 })
 
 test('an installed module with no known version gets the plain suffix', () => {
@@ -68,4 +68,9 @@ test('the agent picker lists every agent by name, preselected first, then alphab
   assert.equal(picker.options[1].label, 'Cursor')
   assert.equal(picker.options[1].hint, '.agents/skills')
   assert.equal(picker.options[0].label, 'Augment')
+})
+
+test('a project holding the old suite has Creative ticked', () => {
+  const picker = modulePicker(messages, modules, { installedCodes: ['core-tools', 'cis'], installedVersions: { cis: '0.4.0' } })
+  assert.deepEqual(picker.initialValues, ['creative'])
 })

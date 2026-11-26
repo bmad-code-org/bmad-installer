@@ -93,7 +93,8 @@ test('the source override swaps the repository of the core modules and keeps the
     const sources = Object.fromEntries((await loadModules()).map((module) => [module.code, module.source]))
     assert.equal(sources['core-tools'], '/tmp/local-checkout/skills/core-tools')
     assert.equal(sources.founder, '/tmp/local-checkout/skills/founder')
-    assert.equal(sources.cis, 'bmad-code-org/bmad-module-creative-intelligence-suite')
+    assert.equal(sources.creative, '/tmp/local-checkout/skills/creative')
+    assert.equal(sources.tea, 'bmad-code-org/bmad-method-test-architecture-enterprise/skills')
     await assertInvalid(
       'modules:\n  - code: one\n    name: One\n    description: d\n    source: nope\n    record: r\n',
       'owner/repo',
