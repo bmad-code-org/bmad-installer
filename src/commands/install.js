@@ -49,7 +49,7 @@ export async function install(options, deps) {
   if (kept.length > 0) {
     prompts.warn(message(messages, 'modulesKept', { modules: kept.map((module) => module.name).join(', ') }))
   }
-  warnReplaced(deps, replacedInstalls(chosen, existing.codes, existing.report))
+  warnReplaced(deps, replacedInstalls(chosen, existing.codes))
 
   const agents = await agentsToInstall(options, deps, directory, interactive)
   const { failures, bmadSkillDir, report } = await applyCalls(deps, {

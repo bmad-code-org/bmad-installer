@@ -67,12 +67,12 @@ export async function pickModuleCodes(options, deps, existing) {
 }
 
 /**
- * Says, for each retired module still installed, which module replaces it and how to remove it.
+ * Says, for each retired module still installed, which module replaces it and that bmad setup removes it.
  * @param {CommandDeps} deps
  * @param {ReplacedInstall[]} replaced
  */
 export function warnReplaced(deps, replaced) {
   for (const entry of replaced) {
-    deps.prompts.warn(message(deps.messages, 'replacedModule', { ...entry, skills: entry.skills.join(' ') }))
+    deps.prompts.warn(message(deps.messages, 'replacedModule', entry))
   }
 }

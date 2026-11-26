@@ -167,7 +167,7 @@ test('an update that could not read the install first says so and exits 1', asyn
   assert.ok(said.warns.includes(messages.updateUnreadInstall))
 })
 
-test('an update of a project holding CIS installs Creative in its place and says how to remove CIS', async (t) => {
+test('an update of a project holding CIS installs Creative in its place and points to bmad setup to remove CIS', async (t) => {
   const dir = await tempDir(t)
   const report = statusOf()
   report.modules.push({ ...report.modules[1], module: 'cis', folder: 'bmod-cis', skills: ['bmad-cis-storytelling'], absent_skills: [] })
@@ -186,5 +186,5 @@ test('an update of a project holding CIS installs Creative in its place and says
     'bmad-code-org/BMAD-METHOD/skills/method',
     'bmad-code-org/BMAD-METHOD/skills/creative',
   ])
-  assert.ok(said.warns.some((warning) => warning.startsWith('BMad Creative replaces BMad Creative Intelligence Suite') && warning.endsWith('npx skills remove bmod-cis bmad-cis-storytelling')), said.warns.join('\n'))
+  assert.ok(said.warns.some((warning) => warning.startsWith('BMad Creative replaces BMad Creative Intelligence Suite') && warning.includes('bmad setup')), said.warns.join('\n'))
 })

@@ -91,7 +91,7 @@ export async function update(options, deps, context = {}) {
     prompts.fail(message(messages, 'nothingToUpdate'))
     return 1
   }
-  warnReplaced(deps, replacedInstalls(modules, codes, wasInstalled))
+  warnReplaced(deps, replacedInstalls(modules, codes))
   if (unplaced.length > 0) prompts.say(message(messages, 'updateNotListed', { modules: unplaced.join(', ') }))
   // Without the first status there is no telling which modules beyond modules.yaml were installed.
   if (!wasInstalled) prompts.warn(message(messages, 'updateUnreadInstall'))

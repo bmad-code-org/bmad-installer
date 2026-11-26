@@ -307,7 +307,7 @@ test('a module complete for one agent is still added for a newly picked agent', 
   assert.deepEqual(only(again.requests), [], 'the same agent again adds nothing')
 })
 
-test('picking Creative over an installed CIS installs Creative and says how to remove CIS', async (t) => {
+test('picking Creative over an installed CIS installs Creative and points to bmad setup to remove CIS', async (t) => {
   const dir = await tempDir(t)
   const { prompts, said } = fakePrompts({ modules: ['creative'] })
   const { cli, requests } = fakeSkillsCli({ lists: [[listed('bmad'), listed('bmod-core-tools'), listed('bmod-cis')], RECORDS.map(listed)] })
@@ -322,6 +322,5 @@ test('picking Creative over an installed CIS installs Creative and says how to r
   const warning = messages.replacedModule
     .replace('{module}', 'BMad Creative')
     .replace('{replaced}', 'BMad Creative Intelligence Suite')
-    .replace('{skills}', 'bmod-cis bmad-cis-storytelling')
   assert.ok(said.warns.includes(warning), said.warns.join('\n'))
 })

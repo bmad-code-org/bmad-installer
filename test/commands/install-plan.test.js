@@ -135,14 +135,9 @@ test('chosenModules gives a ref with a slash to the listed module', () => {
   ])
 })
 
-test('replacedInstalls names a retired module still installed and the skills that remove it', () => {
-  const report = statusOf()
-  report.modules.push({ ...report.modules[1], module: 'cis', folder: 'bmod-cis', skills: ['bmad-cis-storytelling', 'bmod-cis'], absent_skills: [] })
+test('replacedInstalls names a retired module still installed and the module that replaces it', () => {
   const creative = chosenModules(['creative'], modules)
-  assert.deepEqual(replacedInstalls(creative, ['core-tools', 'cis'], report), [
-    { module: 'BMad Creative', replaced: 'BMad Creative Intelligence Suite', skills: ['bmod-cis', 'bmad-cis-storytelling'] },
-  ])
-  assert.deepEqual(replacedInstalls(creative, ['cis'], null)[0].skills, ['bmod-cis'])
-  assert.deepEqual(replacedInstalls(creative, ['core-tools'], report), [])
-  assert.deepEqual(replacedInstalls(chosenModules(['method'], modules), ['cis'], report), [])
+  assert.deepEqual(replacedInstalls(creative, ['core-tools', 'cis']), [{ module: 'BMad Creative', replaced: 'BMad Creative Intelligence Suite' }])
+  assert.deepEqual(replacedInstalls(creative, ['core-tools']), [])
+  assert.deepEqual(replacedInstalls(chosenModules(['method'], modules), ['cis']), [])
 })
